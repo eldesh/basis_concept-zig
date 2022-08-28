@@ -1,5 +1,5 @@
 id: hy9tlecpa5y2oni4wmtnt5a0b13h8joymg2flmethqditet4
-name: basis_concept-zig
+name: basis_concept
 main: src/lib.zig
 license: BSD-2-Clause
 description: A collection of basis concept and their operations
