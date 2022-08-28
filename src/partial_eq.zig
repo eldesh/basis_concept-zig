@@ -97,6 +97,26 @@ pub fn isPartialEq(comptime T: type) bool {
     comptime return is_or_ptrto(implPartialEq)(T);
 }
 
+test "isPartialeq" {
+    try testing.expect(isPartialEq(u32));
+    try testing.expect(isPartialEq(*u32));
+    try testing.expect(isPartialEq(f32));
+    try testing.expect(isPartialEq(*f32));
+    try testing.expect(!isPartialEq([1]*const u32));
+
+    const T = struct {
+        val: u32,
+        fn new(val: u32) @This() {
+            return .{ .val = val };
+        }
+        // impl `eq` manually
+        pub fn eq(self: *const @This(), other: *const @This()) bool {
+            return self.val == other.val;
+        }
+    };
+    try testing.expect(!isPartialEq([1]*const T));
+}
+
 pub const PartialEq = struct {
     fn eq_array(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.Array)(T));
@@ -192,9 +212,16 @@ test "PartialEq" {
     }
     {
         const x: u32 = 5;
+        const y: u32 = 5;
+        try testing.expect(PartialEq.eq(x, y));
+        try testing.expect(PartialEq.eq(&x, &y));
+    }
+    {
+        const x: u32 = 5;
         const y: u32 = 42;
         const xp: *const u32 = &x;
         const yp: *const u32 = &y;
+        try testing.expect(PartialEq.eq(xp, xp));
         try testing.expect(!PartialEq.eq(xp, yp));
     }
     {
@@ -208,13 +235,6 @@ test "PartialEq" {
         try testing.expect(PartialEq.eq(&vec1, &vec1));
         try testing.expect(!PartialEq.eq(&vec1, &vec2));
     }
-    // {
-    //     const x: u32 = 5;
-    //     const y: u32 = 42;
-    //     const arr1 = [_]*const u32{&x};
-    //     const arr2 = [_]*const u32{&y};
-    //     try testing.expect(!PartialEq.eq(&arr1, &arr2));
-    // }
     {
         const T = struct {
             val: u32,
@@ -235,8 +255,5 @@ test "PartialEq" {
         const arr11 = [1]?[1]T{@as(?[1]T, [_]T{x})};
         const arr22 = [1]?[1]T{@as(?[1]T, [_]T{y})};
         try testing.expect(PartialEq.eq(&arr11, &arr22));
-        // const arr1p = [_]*const T{&x};
-        // const arr2p = [_]*const T{&y};
-        // try testing.expect(PartialEq.eq(&arr1p, &arr2p));
     }
 }
