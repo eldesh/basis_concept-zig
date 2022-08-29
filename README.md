@@ -53,4 +53,20 @@ In practice, however, functions with such a type require some properties to be i
 Naming this implicit constraint allows us to deal explicitly with constraints on types.
 
 
+## Concept Convention
+
+Implementations of concept on types, are follows some conventions.
+For any concept `C`, `implC`, `isC` and `C` maybe implemented.
+
+- `fn implC(comptime T:type) bool`  
+    Determine if the type `T` satisfies concept `C` directly.
+
+- `fn isC(comptime T:type) bool`  
+    Determine if the type `T` satisfies concept `C`.
+
+- `const C = struct { ... };`  
+    Namespace `C` that implements generic functions that depend on the concept `C`.
+
+- `fn DeriveC(comptime T:type) type`  
+    Derive functions that depend on `C`.
 
