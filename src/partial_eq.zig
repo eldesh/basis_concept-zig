@@ -200,6 +200,14 @@ pub const PartialEq = struct {
     pub fn ne(x: anytype, y: @TypeOf(x)) bool {
         return !eq(x, y);
     }
+
+    pub fn on(comptime T: type) fn (T, T) bool {
+        return struct {
+            fn call(x: T, y: T) bool {
+                return eq(x, y);
+            }
+        }.call;
+    }
 };
 
 test "PartialEq" {
