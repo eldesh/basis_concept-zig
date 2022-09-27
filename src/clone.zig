@@ -61,6 +61,13 @@ pub fn isClonable(comptime T: type) bool {
 pub const Clone = struct {
     pub const EmptyError = error{};
 
+    pub fn ErrorType(comptime T: type) type {
+        comptime assert(isClonable(T));
+        const Out = deref_type(T);
+        const Err = have_type(Out, "CloneError") orelse EmptyError;
+        return Err;
+    }
+
     pub fn ResultType(comptime T: type) type {
         comptime assert(isClonable(T));
         const Out = deref_type(T);
