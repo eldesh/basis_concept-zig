@@ -18,24 +18,11 @@ const have_fun = meta.have_fun;
 /// Except for pointer types.
 fn implTrivialEq(comptime T: type) bool {
     comptime {
-        if (trait.isNumber(T))
-            return true;
-        if (trait.is(.Void)(T))
-            return true;
-        if (trait.is(.Bool)(T) or trait.is(.Null)(T))
-            return true;
-        // Result of comparison should be @Vector(_, bool).
-        // if (trait.is(.Vector)(T))
-        //     return implTrivialEq(std.meta.Child(T));
-        if (trait.is(.Enum)(T))
-            return implTrivialEq(@typeInfo(T).Enum.tag_type);
-        if (trait.is(.EnumLiteral)(T))
-            return true;
-        if (trait.is(.ErrorSet)(T))
-            return true;
-        // if (trait.is(.Fn)(T))
-        //     return true;
-        return false;
+        return switch (@typeInfo(T)) {
+            .Int, .Float, .ComptimeInt, .ComptimeFloat, .Void, .Bool, .Null, .EnumLiteral, .ErrorSet => true,
+            .Enum => |e| return implTrivialEq(e.tag_type),
+            else => false,
+        };
     }
 }
 
