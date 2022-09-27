@@ -53,6 +53,9 @@ comptime {
     assert(implTrivialEq(@TypeOf(.Tag1)));
     assert(!implTrivialEq(struct { v: u32 }));
     assert(!implTrivialEq(union(enum) { I: u32, F: u64 }));
+    const Err = error{ ErrA, ErrB, ErrC };
+    assert(implTrivialEq(Err));
+    assert(!implTrivialEq(Err!u32));
 }
 
 comptime {
