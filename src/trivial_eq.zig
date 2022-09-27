@@ -40,11 +40,27 @@ fn implTrivialEq(comptime T: type) bool {
 }
 
 comptime {
+    assert(implTrivialEq(u32));
+    assert(implTrivialEq(void));
+    assert(implTrivialEq(bool));
+    assert(implTrivialEq(@TypeOf(null)));
+    assert(!implTrivialEq(?u32));
+    assert(!implTrivialEq(*u32));
+    assert(!implTrivialEq(?*u32));
+    assert(!implTrivialEq(?**u32));
+    assert(!implTrivialEq([3]u32));
+    assert(implTrivialEq(error{FooError}));
+    assert(implTrivialEq(@TypeOf(.Tag1)));
+    assert(!implTrivialEq(struct { v: u32 }));
+    assert(!implTrivialEq(union(enum) { I: u32, F: u64 }));
+}
+
+comptime {
     assert(@as(u32, 1) == @as(u32, 1));
     assert(void{} == void{});
-    assert(null == null);
     assert(true == true);
     assert(true != false);
+    assert(null == null);
     // assert(@Vector(2, u32){ 0, 0 } == @Vector(2, u32){ 0, 0 });
     const E = enum { EA, EB, EC };
     assert(E.EA == E.EA);
