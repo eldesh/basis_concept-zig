@@ -12,13 +12,13 @@ const is_or_ptrto = meta.is_or_ptrto;
 const have_type = meta.have_type;
 const have_fun = meta.have_fun;
 
-pub fn implPartialEq(comptime T: type) bool {
+fn implPartialEq(comptime T: type) bool {
     comptime {
-        if (trivial_eq.implTrivialEq(T))
+        if (trivial_eq.isTrivialEq(T))
             return true;
         if (trait.is(.Array)(T) or trait.is(.Optional)(T))
             return implPartialEq(std.meta.Child(T));
-        if (trait.is(.Vector)(T) and trivial_eq.implTrivialEq(std.meta.Child(T)))
+        if (trait.is(.Vector)(T) and trivial_eq.isTrivialEq(std.meta.Child(T)))
             return implPartialEq(std.meta.Child(T));
         if (trait.is(.ErrorUnion)(T) and implPartialEq(@typeInfo(T).ErrorUnion.payload))
             return true;
@@ -163,7 +163,7 @@ pub const PartialEq = struct {
         const E = std.meta.Child(T);
         comptime assert(implPartialEq(E));
 
-        if (comptime trivial_eq.implTrivialEq(E))
+        if (comptime trivial_eq.isTrivialEq(E))
             return x.* == y.*;
 
         if (comptime trait.is(.Array)(E))
@@ -188,7 +188,6 @@ pub const PartialEq = struct {
     ///
     /// # Details
     /// The type of values are required to satisfy `isPartialEq`.
-    ///
     pub fn eq(x: anytype, y: @TypeOf(x)) bool {
         const T = @TypeOf(x);
         comptime assert(isPartialEq(T));

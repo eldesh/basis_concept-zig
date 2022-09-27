@@ -16,7 +16,7 @@ const have_fun = meta.have_fun;
 /// # Details
 /// Checks that values of the type `T` is comparable with operator `==`.
 /// Except for pointer types.
-pub fn implTrivialEq(comptime T: type) bool {
+fn implTrivialEq(comptime T: type) bool {
     comptime {
         if (trait.isNumber(T))
             return true;
@@ -33,14 +33,15 @@ pub fn implTrivialEq(comptime T: type) bool {
             return true;
         if (trait.is(.ErrorSet)(T))
             return true;
-        if (trait.is(.Fn)(T))
-            return true;
+        // if (trait.is(.Fn)(T))
+        //     return true;
         return false;
     }
 }
 
 comptime {
     assert(@as(u32, 1) == @as(u32, 1));
+    assert(void{} == void{});
     assert(null == null);
     assert(true == true);
     assert(true != false);
@@ -52,4 +53,8 @@ comptime {
     const Err = error{ ErrA, ErrB, ErrC };
     assert(Err.ErrA == Err.ErrA);
     assert(Err.ErrB != Err.ErrC);
+}
+
+pub fn isTrivialEq(comptime T: type) bool {
+    return implTrivialEq(T);
 }
