@@ -4,6 +4,18 @@
 Some basic concepts such as copy and compare are provided.
 
 
+## Concept
+
+*Concept* are named constraints on types such as `Clonable`.
+
+
+In the Zig language, polymorphic functions are sometimes typed `fn (anytype) t`.
+In practice, however, functions with such a type require some properties to be implicit in the value of `anytype`.
+
+Naming this implicit constraint allows us to deal explicitly with constraints on types.
+Further, some associated polymorphic functions are able to be implemented to each Concept such like `Cloneable.clone`.
+
+
 ## Support
 
 This library is developped with:
@@ -15,6 +27,8 @@ This library is developped with:
 
 ## Build
 
+To build:
+
 ```sh
 zig build
 ```
@@ -22,8 +36,7 @@ zig build
 
 ## Unit Test
 
-To performs unit tests of iter-zig:
-
+To performs unit tests:
 
 ```sh
 zig build test
@@ -32,8 +45,7 @@ zig build test
 
 ## Generate docs
 
-To generate documentations:
-
+To generate documents:
 
 ```sh
 zig build doc
@@ -42,15 +54,38 @@ zig build doc
 A html documents would be generated under the `./docs` directory.
 
 
-## Concept
 
-*Concept* are named constraints on types such as Clonable.
+## Module Hierarchy
 
 
-In the Zig language, polymorphic functions are sometimes typed `fn (anytype) t`.
-In practice, however, functions with such a type require some properties to be implicit in the value of `anytype`.
-
-Naming this implicit constraint allows us to deal explicitly with constraints on types.
+- basis_concept (the root module)
+    - copy
+		- isCopyable
+    - clone
+        - isClonable
+        - Clone
+    - partial_ord
+        - isPartialOrd
+        - PartialOrd
+    - ord
+        - isOrd
+        - Ord
+    - trivial_eq
+        - isTrivialEq
+    - partial_eq
+        - isPartialEq
+        - PartialEq
+    - prelude
+		- isCopyable
+        - isClonable
+        - Clone
+        - isPartialOrd
+        - PartialOrd
+        - isOrd
+        - Ord
+        - isTrivialEq
+        - isPartialEq
+        - PartialEq
 
 
 ## Concept Convention
