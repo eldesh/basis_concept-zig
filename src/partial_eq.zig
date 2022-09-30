@@ -12,7 +12,8 @@ const is_or_ptrto = meta.is_or_ptrto;
 const have_type = meta.have_type;
 const have_fun = meta.have_fun;
 
-fn implPartialEq(comptime T: type) bool {
+/// Checks if type `T` satisfies the concept `PartialEq`.
+pub fn implPartialEq(comptime T: type) bool {
     comptime {
         if (trivial_eq.isTrivialEq(T))
             return true;
@@ -93,6 +94,8 @@ comptime {
     }));
 }
 
+/// Checks if the type `T` satisfies the concept `PartialEq` or
+/// is a pointer type to such a type.
 pub fn isPartialEq(comptime T: type) bool {
     comptime return is_or_ptrto(implPartialEq)(T);
 }
