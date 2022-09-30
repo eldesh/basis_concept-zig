@@ -384,6 +384,9 @@ test "DerivePartialEq" {
         try testing.expect(PartialEq.eq(T{ .val = null }, T{ .val = null }));
         try testing.expect(PartialEq.eq(T{ .val = error.Err }, T{ .val = error.Err }));
         try testing.expect(PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .B } }));
+        try testing.expect(PartialEq.eq(&T{ .val = null }, &T{ .val = null }));
+        try testing.expect(PartialEq.eq(&T{ .val = error.Err }, &T{ .val = error.Err }));
+        try testing.expect(PartialEq.eq(&T{ .val = [_]E{ .A, .B } }, &T{ .val = [_]E{ .A, .B } }));
         try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
         try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
     }
