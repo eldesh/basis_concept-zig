@@ -12,17 +12,59 @@ const have_type = meta.have_type;
 const have_fun = meta.have_fun;
 
 pub fn implPartialOrd(comptime T: type) bool {
-    if (trait.is(.Bool)(T))
-        return true;
-    // primitive type
-    if (trait.isNumber(T))
-        return true;
-    // complex type impl 'partial_cmp' method
-    if (have_fun(T, "partial_cmp")) |ty| {
-        if (ty == fn (*const T, *const T) ?std.math.Order)
+    comptime {
+        if (trait.is(.Void)(T))
             return true;
+        if (trait.is(.Bool)(T))
+            return true;
+        if (trait.is(.Null)(T))
+            return true;
+        if (trait.is(.Array)(T))
+            return implPartialOrd(std.meta.Child(T));
+        if (trait.is(.Optional)(T))
+            return implPartialOrd(std.meta.Child(T));
+        if (trait.is(.Enum)(T))
+            return implPartialOrd(@typeInfo(T).Enum.tag_type);
+        if (trait.is(.EnumLiteral)(T))
+            return true;
+        if (trait.is(.ErrorSet)(T))
+            return true;
+        if (trait.is(.ErrorUnion)(T))
+            return implPartialOrd(@typeInfo(T).ErrorUnion.error_set) and implPartialOrd(@typeInfo(T).ErrorUnion.payload);
+        // primitive type
+        if (trait.isNumber(T))
+            return true;
+        if (trait.is(.Union)(T)) {
+            // impl 'partial_cmp' method
+            if (have_fun(T, "partial_cmp")) |ty| {
+                if (ty == fn (*const T, *const T) ?std.math.Order)
+                    return true;
+            }
+            if (@typeInfo(T).Union.tag_type) |tag| {
+                if (!implPartialOrd(tag))
+                    return false;
+            }
+            inline for (std.meta.fields(T)) |field| {
+                if (!implPartialOrd(field.field_type))
+                    return false;
+            }
+            // all type of fields are comparable
+            return true;
+        }
+        if (trait.is(.Struct)(T)) {
+            if (have_fun(T, "partial_cmp")) |ty| {
+                if (ty == fn (*const T, *const T) ?std.math.Order)
+                    return true;
+            }
+            inline for (std.meta.fields(T)) |field| {
+                if (!implPartialOrd(field.field_type))
+                    return false;
+            }
+            // all type of fields are comparable
+            return true;
+        }
+        return false;
     }
-    return false;
 }
 
 pub fn isPartialOrd(comptime T: type) bool {
@@ -35,9 +77,23 @@ comptime {
     assert(isPartialOrd(i64));
     assert(isPartialOrd(*const i64));
     assert(!isPartialOrd(*[]const i64));
-    assert(!isPartialOrd([8]u64));
+    assert(isPartialOrd([8]u64));
     assert(isPartialOrd(f64));
     assert(!isPartialOrd(@Vector(4, u32)));
+
+    const U = union(enum) { Tag1, Tag2, Tag3 };
+    assert(isPartialOrd(U));
+    assert(isPartialOrd(*U));
+    assert(isPartialOrd(*const U));
+    assert(!isPartialOrd(**const U));
+
+    const OverflowError = error{Overflow};
+    assert(isPartialOrd(@TypeOf(.Overflow))); // EnumLiteral
+    assert(isPartialOrd(OverflowError)); // ErrorSet
+    assert(isPartialOrd(OverflowError![2]U)); // ErrorUnion
+    assert(isPartialOrd(?(error{Overflow}![2]U)));
+
+    assert(isPartialOrd(struct { val: u32 }));
     const C = struct {
         pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
             _ = x;
@@ -48,14 +104,17 @@ comptime {
     assert(isPartialOrd(C));
     assert(isPartialOrd(*C));
     const D = struct {
+        val: u32, // isPartialOrd
+        // signature of partial_cmp is not matches to
+        // `fn (*const T, *const T) ?Order`.
         pub fn partial_cmp(x: @This(), y: @This()) ?std.math.Order {
             _ = x;
             _ = y;
             return null;
         }
     };
-    assert(!isPartialOrd(D));
-    assert(!isPartialOrd(*D));
+    assert(isPartialOrd(D));
+    assert(isPartialOrd(*D));
 }
 
 pub const PartialOrd = struct {
