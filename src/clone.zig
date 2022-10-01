@@ -16,15 +16,17 @@ fn implClone(comptime T: type) bool {
         if (copy.implCopy(T))
             return true;
 
-        if (have_type(T, "Self")) |Self| {
-            if (have_type(T, "CloneError")) |CloneError| {
-                if (!trait.is(.ErrorSet)(CloneError))
-                    return false;
-                if (have_fun(T, "clone")) |clone_ty| {
-                    if (clone_ty == fn (Self) CloneError!Self)
-                        return true;
+        if (have_fun(T, "clone")) |clone_ty| {
+            const Error: type = Error: {
+                if (have_type(T, "CloneError")) |CloneError| {
+                    if (!trait.is(.ErrorSet)(CloneError))
+                        return false;
+                    break :Error CloneError;
+                } else {
+                    break :Error Clone.EmptyError;
                 }
-            }
+            };
+            return clone_ty == fn (*const T) Error!T;
         }
         return false;
     }
@@ -52,6 +54,21 @@ comptime {
     assert(!implClone([*]const T));
     assert(implClone(struct { val: [2]T }));
     assert(!implClone(*struct { val: [2]T }));
+
+    const U = struct {
+        pub const Self: type = @This();
+        // For never fail clone, error type is not defined.
+        // pub const CloneError: type = undefined;
+        x: u32,
+        pub fn clone(self: *const Self) Clone.EmptyError!Self {
+            return .{ .x = self.x };
+        }
+    };
+    assert(implClone(U));
+    assert(implClone([2]U));
+    assert(!implClone([]U));
+    assert(implClone(struct { fst: T, snd: U }));
+    assert(implClone([2]struct { fst: T, snd: U }));
 }
 
 pub fn isClonable(comptime T: type) bool {
@@ -96,6 +113,10 @@ pub const Clone = struct {
 
 test "Clone" {
     const doclone = Clone.clone;
+
+    const ax = [3]u32{ 0, 1, 2 };
+    try testing.expectEqual(ax, try doclone(&ax));
+
     try testing.expectEqual(@as(error{}!u32, 5), doclone(@as(u32, 5)));
     try testing.expectEqual(@as(error{}!comptime_int, 5), doclone(5));
     try testing.expectEqual(@as(error{}![3]u32, [_]u32{ 1, 2, 3 }), doclone([_]u32{ 1, 2, 3 }));
@@ -110,16 +131,18 @@ test "Clone" {
         pub fn new(ss: []u8) Self {
             return .{ .ss = ss };
         }
-        pub fn clone(self: Self) CloneError!Self {
+        pub fn clone(self: *const Self) CloneError!Self {
             var ss = try testing.allocator.dupe(u8, self.ss);
             return Self{ .ss = ss };
         }
-        pub fn destroy(self: *Self) void {
-            testing.allocator.free(self.ss);
-            self.ss.len = 0;
+        pub fn destroy(self: Self) void {
+            var it = self;
+            testing.allocator.free(it.ss);
+            it.ss.len = 0;
         }
     };
 
+    comptime assert(isClonable(T));
     var orig = T.new(try testing.allocator.dupe(u8, "foo"));
     defer orig.destroy();
     var new = doclone(orig);

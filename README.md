@@ -19,18 +19,31 @@ Further, some associated polymorphic functions are able to be implemented to eac
 
 ## Examples
 
-### Clonable
+### Checking Clonable
 
 When you want to implement `clone` on a container type only for types that are clonable.
 
 ```
 pub fn Container(comptime T: type) type {
-  return struct { .. };
+  return struct {
+    pub const Self: type = @This();
+    pub const CloneError: type = std.mem.Allocator.Error;
+    ..
+    pub usingnamespace if isClonable(T) {
+      return struct {
+        pub fn clone(self: *const Self) CloneError!Self {
+          .. T.clone() ..
+        }
+      };
+    } else {
+      return struct {}; // empty
+    };
+  };
 }
 
 // For a clonable type C:
 var c = Container(C);
-var d = try c.clone();
+var d = try c.clone(); // clonable
 
 // For a not clonable type N:
 var n = Container(N);
@@ -38,7 +51,7 @@ var n = Container(N);
 ```
 
 
-### Totally comparable
+### Comparing totally
 
 When you want to pass an ordering function for a key type of a Mapping container.
 
