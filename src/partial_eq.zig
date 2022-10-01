@@ -268,14 +268,15 @@ test "PartialEq" {
     }
 }
 
-/// Derive `eq` of `PartialEq` for the type `T`
+/// Derive `eq` and `ne` of `PartialEq` for the type `T`
 ///
 /// # Details
 /// For type `T` which is struct or tagged union type, derive `eq` method.
 /// The signature of that method should be `fn (self: *const T, other: *const T) bool`.
 ///
 /// This function should be used like below:
-/// ```zig
+///
+/// ```
 /// struct {
 ///   val1: type1, // must not be pointer type
 ///   val2: type2, // must not be pointer type
@@ -284,7 +285,8 @@ test "PartialEq" {
 /// ```
 ///
 /// This definition declares the type have `eq` method same as below declaration:
-/// ```zig
+///
+/// ```
 /// struct {
 ///   val1: type1,
 ///   val2: type2,
