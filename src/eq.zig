@@ -43,6 +43,9 @@ comptime {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return self.val != other.val;
+        }
     }));
     assert(!implEq(f64));
     assert(!implEq(*u64));
@@ -63,6 +66,9 @@ comptime {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return std.meta.activeTag(self.*) == std.meta.activeTag(other.*);
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return !self.eq(other);
+        }
     };
     assert(implEq(UEq));
     assert(!implEq(*UEq));
@@ -79,6 +85,9 @@ comptime {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return Eq.eq(self, other);
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return Eq.ne(self, other);
+        }
     }));
     assert(!implEq(struct { val: ?(error{Overflow}![2]*const U) }));
     assert(implEq(struct {
@@ -86,11 +95,17 @@ comptime {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return self.val != other.val;
+        }
     }));
     assert(implEq(struct {
         val: *u32,
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
+        }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return !self.eq(other);
         }
     }));
 }
@@ -205,7 +220,17 @@ pub const Eq = struct {
         return !eq(x, y);
     }
 
-    pub fn on(comptime T: type) fn (T, T) bool {
+    /// Acquiring a type has functions `eq` and `ne` specialized for `T`.
+    ///
+    /// # Details
+    /// Acquiring a type has functions `eq` and `ne`.
+    /// These functions are specialized `Eq.eq` and `Eq.ne` for type `T`.
+    ///
+    /// ```
+    /// const eq_T: fn (T, T) bool = Eq.on(T).eq;
+    /// const ne_T: fn (T, T) bool = Eq.on(T).ne;
+    /// ```
+    pub fn on(comptime T: type) type {
         return struct {
             fn eq(x: T, y: T) bool {
                 return Eq.eq(x, y);
@@ -224,12 +249,16 @@ test "Eq" {
         const y: u32 = 42;
         try testing.expect(!Eq.eq(x, y));
         try testing.expect(!Eq.eq(&x, &y));
+        try testing.expect(Eq.ne(x, y));
+        try testing.expect(Eq.ne(&x, &y));
     }
     {
         const x: u32 = 5;
         const y: u32 = 5;
         try testing.expect(Eq.eq(x, y));
         try testing.expect(Eq.eq(&x, &y));
+        try testing.expect(!Eq.ne(x, y));
+        try testing.expect(!Eq.ne(&x, &y));
     }
     {
         const x: u32 = 5;
@@ -238,17 +267,22 @@ test "Eq" {
         const yp: *const u32 = &y;
         try testing.expect(Eq.eq(xp, xp));
         try testing.expect(!Eq.eq(xp, yp));
+        try testing.expect(!Eq.ne(xp, xp));
+        try testing.expect(Eq.ne(xp, yp));
     }
     {
         const arr1 = [_]u32{ 0, 1, 2 };
         const arr2 = [_]u32{ 0, 1, 2 };
         try testing.expect(Eq.eq(arr1, arr2));
+        try testing.expect(!Eq.ne(arr1, arr2));
     }
     {
         const vec1 = std.meta.Vector(4, u32){ 0, 1, 2, 3 };
         const vec2 = std.meta.Vector(4, u32){ 0, 1, 2, 4 };
         try testing.expect(Eq.eq(&vec1, &vec1));
         try testing.expect(!Eq.eq(&vec1, &vec2));
+        try testing.expect(!Eq.ne(&vec1, &vec1));
+        try testing.expect(Eq.ne(&vec1, &vec2));
     }
     {
         const T = struct {
@@ -260,16 +294,22 @@ test "Eq" {
             pub fn eq(self: *const @This(), other: *const @This()) bool {
                 return self.val == other.val;
             }
+            pub fn ne(self: *const @This(), other: *const @This()) bool {
+                return !self.eq(other);
+            }
         };
         const x = T.new(5);
         const y = T.new(5);
         try testing.expect(Eq.eq(x, y));
+        try testing.expect(!Eq.ne(x, y));
         const arr1 = [_]T{x};
         const arr2 = [_]T{y};
         try testing.expect(Eq.eq(&arr1, &arr2));
+        try testing.expect(!Eq.ne(&arr1, &arr2));
         const arr11 = [1]?[1]T{@as(?[1]T, [_]T{x})};
         const arr22 = [1]?[1]T{@as(?[1]T, [_]T{y})};
         try testing.expect(Eq.eq(&arr11, &arr22));
+        try testing.expect(!Eq.ne(&arr11, &arr22));
     }
 }
 
@@ -354,6 +394,7 @@ test "DeriveEq" {
         const x: T = T{ .val = 5 };
         const y: T = T{ .val = 5 };
         try testing.expect(Eq.eq(x, y));
+        try testing.expect(!Eq.ne(x, y));
     }
     {
         // contains pointer
@@ -368,12 +409,16 @@ test "DeriveEq" {
             pub fn eq(self: *const @This(), other: *const @This()) bool {
                 return self.val.* == other.val.*;
             }
+            pub fn ne(self: *const @This(), other: *const @This()) bool {
+                return self.val.* != other.val.*;
+            }
         };
         var v0 = @as(u32, 5);
         var v1 = @as(u32, 5);
         const x = T.new(&v0);
         const y = T.new(&v1);
         try testing.expect(Eq.eq(x, y));
+        try testing.expect(!Eq.ne(x, y));
     }
     {
         // tagged union
@@ -396,5 +441,15 @@ test "DeriveEq" {
         try testing.expect(Eq.eq(&T{ .val = [_]E{ .A, .B } }, &T{ .val = [_]E{ .A, .B } }));
         try testing.expect(!Eq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
         try testing.expect(!Eq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
+
+        // ne
+        try testing.expect(!Eq.ne(T{ .val = null }, T{ .val = null }));
+        try testing.expect(!Eq.ne(T{ .val = error.Err }, T{ .val = error.Err }));
+        try testing.expect(!Eq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .B } }));
+        try testing.expect(!Eq.ne(&T{ .val = null }, &T{ .val = null }));
+        try testing.expect(!Eq.ne(&T{ .val = error.Err }, &T{ .val = error.Err }));
+        try testing.expect(!Eq.ne(&T{ .val = [_]E{ .A, .B } }, &T{ .val = [_]E{ .A, .B } }));
+        try testing.expect(Eq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
+        try testing.expect(Eq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
     }
 }

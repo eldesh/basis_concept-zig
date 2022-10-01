@@ -23,8 +23,13 @@ pub fn implPartialEq(comptime T: type) bool {
             return implPartialEq(std.meta.Child(T));
         if (trait.is(.ErrorUnion)(T) and implPartialEq(@typeInfo(T).ErrorUnion.payload))
             return true;
-        if (have_fun(T, "eq")) |ty|
-            return ty == fn (*const T, *const T) bool;
+        if (have_fun(T, "eq")) |eq| {
+            if (have_fun(T, "ne")) |ne| {
+                const sig = fn (*const T, *const T) bool;
+                return eq == sig and ne == sig;
+            }
+            return false;
+        }
         return false;
     }
 }
@@ -41,6 +46,9 @@ comptime {
 
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
+        }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return !self.eq(other);
         }
     }));
     assert(implPartialEq(f64));
@@ -62,6 +70,9 @@ comptime {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return std.meta.activeTag(self.*) == std.meta.activeTag(other.*);
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return !self.eq(other);
+        }
     };
     assert(implPartialEq(UEq));
     assert(!implPartialEq(*UEq));
@@ -78,6 +89,9 @@ comptime {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return PartialEq.eq(self, other);
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return !self.eq(other);
+        }
     }));
     assert(!implPartialEq(struct { val: ?(error{Overflow}![2]*const U) }));
     assert(implPartialEq(struct {
@@ -85,11 +99,17 @@ comptime {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return self.val != other.val;
+        }
     }));
     assert(implPartialEq(struct {
         val: *u32,
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
+        }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return self.val != other.val;
         }
     }));
 }
@@ -100,7 +120,7 @@ pub fn isPartialEq(comptime T: type) bool {
     comptime return is_or_ptrto(implPartialEq)(T);
 }
 
-test "isPartialeq" {
+test "isPartialEq" {
     try testing.expect(isPartialEq(u32));
     try testing.expect(isPartialEq(*u32));
     try testing.expect(isPartialEq(f32));
@@ -116,7 +136,12 @@ test "isPartialeq" {
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
         }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return !self.eq(other);
+        }
     };
+    try testing.expect(isPartialEq(T));
+    try testing.expect(isPartialEq(*const [2]T));
     try testing.expect(!isPartialEq([1]*const T));
 }
 
@@ -204,12 +229,26 @@ pub const PartialEq = struct {
         return !eq(x, y);
     }
 
-    pub fn on(comptime T: type) fn (T, T) bool {
+    /// Acquiring a type has functions `eq` and `ne` specialized for `T`.
+    ///
+    /// # Details
+    /// Acquiring a type has functions `eq` and `ne`.
+    /// These functions are specialized `PartialEq.eq` and `PartialEq.ne` for type `T`.
+    ///
+    /// ```
+    /// const eq_T: fn (T, T) bool = PartialEq.on(T).eq;
+    /// const ne_T: fn (T, T) bool = PartialEq.on(T).ne;
+    /// ```
+    pub fn on(comptime T: type) type {
         return struct {
-            fn call(x: T, y: T) bool {
-                return eq(x, y);
+            fn eq(x: T, y: T) bool {
+                return PartialEq.eq(x, y);
             }
-        }.call;
+
+            fn ne(x: T, y: T) bool {
+                return PartialEq.ne(x, y);
+            }
+        };
     }
 };
 
@@ -255,16 +294,22 @@ test "PartialEq" {
             pub fn eq(self: *const @This(), other: *const @This()) bool {
                 return self.val == other.val;
             }
+            pub fn ne(self: *const @This(), other: *const @This()) bool {
+                return self.val != other.val;
+            }
         };
         const x = T.new(5);
         const y = T.new(5);
         try testing.expect(PartialEq.eq(x, y));
+        try testing.expect(!PartialEq.ne(x, y));
         const arr1 = [_]T{x};
         const arr2 = [_]T{y};
         try testing.expect(PartialEq.eq(&arr1, &arr2));
+        try testing.expect(!PartialEq.ne(&arr1, &arr2));
         const arr11 = [1]?[1]T{@as(?[1]T, [_]T{x})};
         const arr22 = [1]?[1]T{@as(?[1]T, [_]T{y})};
         try testing.expect(PartialEq.eq(&arr11, &arr22));
+        try testing.expect(!PartialEq.ne(&arr11, &arr22));
     }
 }
 
@@ -349,6 +394,7 @@ test "DerivePartialEq" {
         const x: T = T{ .val = 5 };
         const y: T = T{ .val = 5 };
         try testing.expect(PartialEq.eq(x, y));
+        try testing.expect(!PartialEq.ne(x, y));
     }
     {
         // contains pointer
@@ -363,12 +409,16 @@ test "DerivePartialEq" {
             pub fn eq(self: *const @This(), other: *const @This()) bool {
                 return self.val.* == other.val.*;
             }
+            pub fn ne(self: *const @This(), other: *const @This()) bool {
+                return !self.eq(other);
+            }
         };
         var v0 = @as(u32, 5);
         var v1 = @as(u32, 5);
         const x = T.new(&v0);
         const y = T.new(&v1);
         try testing.expect(PartialEq.eq(x, y));
+        try testing.expect(!PartialEq.ne(x, y));
     }
     {
         // tagged union
@@ -391,5 +441,14 @@ test "DerivePartialEq" {
         try testing.expect(PartialEq.eq(&T{ .val = [_]E{ .A, .B } }, &T{ .val = [_]E{ .A, .B } }));
         try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
         try testing.expect(!PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
+
+        try testing.expect(!PartialEq.ne(T{ .val = null }, T{ .val = null }));
+        try testing.expect(!PartialEq.ne(T{ .val = error.Err }, T{ .val = error.Err }));
+        try testing.expect(!PartialEq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .B } }));
+        try testing.expect(!PartialEq.ne(&T{ .val = null }, &T{ .val = null }));
+        try testing.expect(!PartialEq.ne(&T{ .val = error.Err }, &T{ .val = error.Err }));
+        try testing.expect(!PartialEq.ne(&T{ .val = [_]E{ .A, .B } }, &T{ .val = [_]E{ .A, .B } }));
+        try testing.expect(PartialEq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
+        try testing.expect(PartialEq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
     }
 }
