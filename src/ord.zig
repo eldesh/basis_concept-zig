@@ -7,15 +7,10 @@ const trait = std.meta.trait;
 const testing = std.testing;
 
 const assert = std.debug.assert;
-const have_fun = meta.have_fun;
-const is_or_ptrto = meta.is_or_ptrto;
-const implPartialOrd = partial_ord.implPartialOrd;
-const isPartialOrd = partial_ord.isPartialOrd;
-const PartialOrd = partial_ord.PartialOrd;
 
 pub fn implOrd(comptime T: type) bool {
     comptime {
-        if (!implPartialOrd(T))
+        if (!partial_ord.implPartialOrd(T))
             return false;
 
         if (trait.is(.Void)(T))
@@ -38,7 +33,7 @@ pub fn implOrd(comptime T: type) bool {
             return implOrd(@typeInfo(T).ErrorUnion.error_set) and implOrd(@typeInfo(T).ErrorUnion.payload);
         if (trait.isIntegral(T))
             return true;
-        if (have_fun(T, "cmp")) |ty|
+        if (meta.have_fun(T, "cmp")) |ty|
             return ty == fn (*const T, *const T) std.math.Order;
         if (trait.is(.Union)(T)) {
             if (@typeInfo(T).Union.tag_type) |tag| {
@@ -65,7 +60,7 @@ pub fn implOrd(comptime T: type) bool {
 }
 
 pub fn isOrd(comptime T: type) bool {
-    comptime return is_or_ptrto(implOrd)(T);
+    comptime return partial_ord.isPartialOrd(T) and meta.is_or_ptrto(implOrd)(T);
 }
 
 comptime {
@@ -111,10 +106,10 @@ comptime {
 }
 
 pub const Ord = struct {
-    fn cmp_bool(x: *const bool, y: *const bool) std.math.Order {
-        if (x.* == y.*)
+    fn cmp_bool(x: bool, y: bool) std.math.Order {
+        if (x == y)
             return .eq;
-        return if (y.*) .lt else .gt;
+        return if (y) .lt else .gt;
     }
 
     fn cmp_array(comptime T: type, x: T, y: T) std.math.Order {
@@ -146,12 +141,12 @@ pub const Ord = struct {
         const T = @TypeOf(x);
         comptime assert(trait.isSingleItemPtr(T));
         const E = std.meta.Child(T);
-        comptime assert(implPartialOrd(E));
+        comptime assert(implOrd(E));
 
         if (comptime trait.is(.Void)(E))
             return .eq;
         if (comptime trait.is(.Bool)(E))
-            return cmp_bool(x, y);
+            return cmp_bool(x.*, y.*);
         if (comptime trait.is(.Null)(E))
             return .eq;
         if (comptime trait.is(.Array)(E))
@@ -162,7 +157,7 @@ pub const Ord = struct {
             return cmp_enum(T, x, y);
         if (comptime trait.isIntegral(E))
             return std.math.order(x.*, y.*);
-        if (comptime have_fun(T, "cmp")) |_|
+        if (comptime meta.have_fun(T, "cmp")) |_|
             return x.cmp(y);
 
         @compileError("Ord is undefined for type:" ++ @typeName(T));

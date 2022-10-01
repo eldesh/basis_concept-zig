@@ -5,10 +5,7 @@ const meta = @import("./meta.zig");
 const trait = std.meta.trait;
 const testing = std.testing;
 
-const math = std.math;
 const assert = std.debug.assert;
-const is_or_ptrto = meta.is_or_ptrto;
-const have_fun = meta.have_fun;
 
 pub fn implPartialOrd(comptime T: type) bool {
     comptime {
@@ -32,7 +29,7 @@ pub fn implPartialOrd(comptime T: type) bool {
             return implPartialOrd(@typeInfo(T).ErrorUnion.error_set) and implPartialOrd(@typeInfo(T).ErrorUnion.payload);
         if (trait.isNumber(T))
             return true;
-        if (have_fun(T, "partial_cmp")) |ty|
+        if (meta.have_fun(T, "partial_cmp")) |ty|
             return ty == fn (*const T, *const T) ?std.math.Order;
         if (trait.is(.Union)(T)) {
             if (@typeInfo(T).Union.tag_type) |tag| {
@@ -59,7 +56,7 @@ pub fn implPartialOrd(comptime T: type) bool {
 }
 
 pub fn isPartialOrd(comptime T: type) bool {
-    comptime return is_or_ptrto(implPartialOrd)(T);
+    comptime return meta.is_or_ptrto(implPartialOrd)(T);
 }
 
 comptime {
@@ -109,17 +106,17 @@ comptime {
 }
 
 pub const PartialOrd = struct {
-    fn partial_cmp_float(x: anytype, y: @TypeOf(x)) ?math.Order {
+    fn cmp_float(x: anytype, y: @TypeOf(x)) ?std.math.Order {
         comptime assert(trait.isFloat(@TypeOf(x)));
-        if (math.isNan(x) or math.isNan(y))
+        if (std.math.isNan(x) or std.math.isNan(y))
             return null;
         return std.math.order(x, y);
     }
 
-    fn cmp_bool(x: *const bool, y: *const bool) std.math.Order {
-        if (x.* == y.*)
+    fn cmp_bool(x: bool, y: bool) std.math.Order {
+        if (x == y)
             return .eq;
-        return if (y.*) .lt else .gt;
+        return if (y) .lt else .gt;
     }
 
     fn cmp_array(comptime T: type, x: T, y: T) ?std.math.Order {
@@ -160,7 +157,7 @@ pub const PartialOrd = struct {
         if (comptime trait.is(.Void)(E))
             return .eq;
         if (comptime trait.is(.Bool)(E))
-            return cmp_bool(x, y);
+            return cmp_bool(x.*, y.*);
         if (comptime trait.is(.Null)(E))
             return .eq;
         if (comptime trait.is(.Array)(E))
@@ -170,10 +167,10 @@ pub const PartialOrd = struct {
         if (comptime trait.is(.Enum)(E))
             return cmp_enum(T, x, y);
         if (comptime trait.isFloat(E))
-            return partial_cmp_float(x.*, y.*);
+            return cmp_float(x.*, y.*);
         if (comptime trait.isIntegral(E))
-            return math.order(x.*, y.*);
-        if (comptime have_fun(T, "partial_cmp")) |_|
+            return std.math.order(x.*, y.*);
+        if (comptime meta.have_fun(T, "partial_cmp")) |_|
             return x.partial_cmp(y);
 
         @compileError("PartialOrd is undefined for type:" ++ @typeName(T));
@@ -220,8 +217,8 @@ comptime {
     var py = &y;
     assert(PartialOrd.on(f32)(x, y).? == .lt);
     assert(PartialOrd.on(*const f32)(px, py).? == .lt);
-    assert(PartialOrd.on(f32)(x, math.nan(f32)) == null);
-    assert(PartialOrd.on(*const f32)(px, &math.nan(f32)) == null);
+    assert(PartialOrd.on(f32)(x, std.math.nan(f32)) == null);
+    assert(PartialOrd.on(*const f32)(px, &std.math.nan(f32)) == null);
 }
 
 test "PartialOrd" {
@@ -250,7 +247,7 @@ test "PartialOrd" {
         fn new(x: u32) @This() {
             return .{ .x = x };
         }
-        fn partial_cmp(self: *const @This(), other: *const @This()) ?math.Order {
+        fn partial_cmp(self: *const @This(), other: *const @This()) ?std.math.Order {
             return std.math.order(self.x, other.x);
         }
     };
