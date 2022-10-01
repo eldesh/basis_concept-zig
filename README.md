@@ -1,7 +1,7 @@
 # Basis Concept Zig
 
-**basis_concept-zig** is a collection library of basis concept and their operations.
-Some basic concepts such as copy and compare are provided.
+**basis_concept-zig** is a collection library of "basis concept" and some operations on it.
+Some basic concepts such as `Copyable` are provided.
 
 
 ## Concept
@@ -10,9 +10,10 @@ Some basic concepts such as copy and compare are provided.
 
 
 In the Zig language, polymorphic functions are sometimes typed `fn (anytype) t`.
-In practice, however, functions with such a type require some properties to be implicit in the value of `anytype`.
+Often, however, functions with such types implicitly require some properties for their types.
+The `Concept` allows such implicit constraints to be named.
 
-Naming this implicit constraint allows us to deal explicitly with constraints on types.
+Naming such implicit constraint allows us to deal explicitly with constraints on types.
 Further, some associated polymorphic functions are able to be implemented to each Concept such like `Cloneable.clone`.
 
 
@@ -54,7 +55,6 @@ zig build doc
 A html documents would be generated under the `./docs` directory.
 
 
-
 ## Module Hierarchy
 
 
@@ -76,16 +76,10 @@ A html documents would be generated under the `./docs` directory.
         - isPartialEq
         - PartialEq
     - prelude
-		- isCopyable
-        - isClonable
         - Clone
-        - isPartialOrd
-        - PartialOrd
-        - isOrd
-        - Ord
-        - isTrivialEq
-        - isPartialEq
         - PartialEq
+        - PartialOrd
+        - Ord
 
 
 ## Concept Convention
