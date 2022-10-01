@@ -1,15 +1,8 @@
 const std = @import("std");
 
-const meta = @import("./meta.zig");
-
-const trait = std.meta.trait;
 const testing = std.testing;
 
-const math = std.math;
 const assert = std.debug.assert;
-const is_or_ptrto = meta.is_or_ptrto;
-const have_type = meta.have_type;
-const have_fun = meta.have_fun;
 
 /// Trivially comparable with `==`.
 ///
@@ -63,4 +56,26 @@ comptime {
 
 pub fn isTrivialEq(comptime T: type) bool {
     return implTrivialEq(T);
+}
+
+test "trivial_eq" {
+    try testing.expect({} == {}); // Void
+    try testing.expect(true == true);
+    try testing.expect(true != false);
+    try testing.expect(null == null);
+    try testing.expect(42 == 42);
+    try testing.expect(42 != 314);
+    try testing.expect(@as(u32, 42) == @as(u32, 42));
+    try testing.expect(@as(u32, 42) != @as(u32, 41));
+    try testing.expect(.Overflow != .NotFound); // EnumLiteral
+    try testing.expect(.Overflow == .Overflow); // EnumLiteral
+    const AnEnum = enum { Foo, Bar };
+    try testing.expect(AnEnum.Foo == AnEnum.Foo);
+    try testing.expect(AnEnum.Foo != AnEnum.Bar);
+    const AnEnumT = enum(u8) { Foo, Bar };
+    try testing.expect(AnEnumT.Foo == AnEnumT.Foo);
+    try testing.expect(AnEnumT.Foo != AnEnumT.Bar);
+    const AnError = error{ FooE, BarE };
+    try testing.expect(AnError.FooE == AnError.FooE);
+    try testing.expect(AnError.FooE != AnError.BarE);
 }
