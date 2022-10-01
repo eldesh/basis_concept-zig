@@ -21,22 +21,12 @@ pub const PartialEq = partial_eq.PartialEq;
 
 pub const isTrivialEq = trivial_eq.isTrivialEq;
 
+/// Namespace provides basic functions.
 pub const prelude = struct {
-    pub const isCopyable = copy.isCopyable;
-
-    pub const isClonable = clone.isClonable;
     pub const Clone = clone.Clone;
-
-    pub const isPartialOrd = partial_ord.isPartialOrd;
     pub const PartialOrd = partial_ord.PartialOrd;
-
-    pub const isOrd = ord.isOrd;
     pub const Ord = ord.Ord;
-
-    pub const isPartialEq = partial_eq.isPartialEq;
     pub const PartialEq = partial_eq.PartialEq;
-
-    pub const isTrivialEq = trivial_eq.isTrivialEq;
 };
 
 test {
