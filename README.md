@@ -17,6 +17,39 @@ Naming such implicit constraint allows us to deal explicitly with constraints on
 Further, some associated polymorphic functions are able to be implemented to each Concept such like `Cloneable.clone`.
 
 
+## Examples
+
+### Clonable
+
+When you want to implement `clone` on a container type only for types that are clonable.
+
+```
+pub fn Container(comptime T: type) type {
+  return struct { .. };
+}
+
+// For a clonable type C:
+var c = Container(C);
+var d = try c.clone();
+
+// For a not clonable type N:
+var n = Container(N);
+// _ = try n.clone(); // compilation error
+```
+
+
+### Totally comparable
+
+When you want to pass an ordering function for a key type of a Mapping container.
+
+```
+var map: Map(Key, Value) = MakeKeyValueMap(Key, Value, Ord.on(Key));
+map.insert(key1, value1);
+map.insert(key2, value2);
+...
+```
+
+
 ## Support
 
 This library is developped with:
