@@ -108,11 +108,15 @@ A html documents would be generated under the `./docs` directory.
     - partial_eq
         - isPartialEq
         - PartialEq
+    - eq
+        - isEq
+        - Eq
     - prelude
         - Clone
         - PartialEq
         - PartialOrd
         - Ord
+        - Eq
 
 
 ## Concept Convention
