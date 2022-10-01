@@ -32,9 +32,9 @@ pub fn implPartialOrd(comptime T: type) bool {
             return implPartialOrd(@typeInfo(T).ErrorUnion.error_set) and implPartialOrd(@typeInfo(T).ErrorUnion.payload);
         if (trait.isNumber(T))
             return true;
+        if (have_fun(T, "partial_cmp")) |ty|
+            return ty == fn (*const T, *const T) ?std.math.Order;
         if (trait.is(.Union)(T)) {
-            if (have_fun(T, "partial_cmp")) |ty|
-                return ty == fn (*const T, *const T) ?std.math.Order;
             if (@typeInfo(T).Union.tag_type) |tag| {
                 if (!implPartialOrd(tag))
                     return false;
@@ -47,8 +47,6 @@ pub fn implPartialOrd(comptime T: type) bool {
             return true;
         }
         if (trait.is(.Struct)(T)) {
-            if (have_fun(T, "partial_cmp")) |ty|
-                return ty == fn (*const T, *const T) ?std.math.Order;
             inline for (std.meta.fields(T)) |field| {
                 if (!implPartialOrd(field.field_type))
                     return false;
@@ -227,17 +225,26 @@ comptime {
 }
 
 test "PartialOrd" {
+    // compares primitive type
     try testing.expectEqual(PartialOrd.partial_cmp(null, null), .eq);
-    const ax = [3]u32{ 0, 1, 2 };
-    const bx = [3]u32{ 0, 1, 3 };
-    try testing.expectEqual(PartialOrd.partial_cmp(ax, bx), .lt);
-    try testing.expectEqual(PartialOrd.partial_cmp(ax, ax), .eq);
 
     const five: u32 = 5;
     const six: u32 = 6;
     try testing.expectEqual(PartialOrd.partial_cmp(five, six), .lt);
     try testing.expectEqual(PartialOrd.partial_cmp(&five, &six), .lt);
 
+    const fiveh: f64 = 5.5;
+    const sixh: f64 = 6.5;
+    try testing.expectEqual(PartialOrd.partial_cmp(fiveh, sixh), .lt);
+    try testing.expectEqual(PartialOrd.partial_cmp(&fiveh, &sixh), .lt);
+
+    // compares sequence type
+    const ax = [3]u32{ 0, 1, 2 };
+    const bx = [3]u32{ 0, 1, 3 };
+    try testing.expectEqual(PartialOrd.partial_cmp(ax, bx), .lt);
+    try testing.expectEqual(PartialOrd.partial_cmp(ax, ax), .eq);
+
+    // compares complex type
     const C = struct {
         x: u32,
         fn new(x: u32) @This() {
