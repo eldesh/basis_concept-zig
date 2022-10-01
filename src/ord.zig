@@ -102,11 +102,22 @@ pub const Ord = struct {
         return x.cmp(y);
     }
 
-    /// Acquire the specilized 'cmp' function with 'T'.
+    /// Acquiring the 'partial_cmp' function specilized for type `T`.
     ///
     /// # Details
-    /// The type of 'cmp' is evaluated as `fn (anytype,anytype) anytype` by default.
-    /// To using the function specialized to a type, pass the function like `set(T)`.
+    /// The type of 'partial_cmp' is considered to be `fn (anytype,anytype) anytype`, and to acquire an implementation for a specific type you need to do the following:
+    /// ```
+    /// val specialized_to_T = struct {
+    ///   fn cmp(x:T, y:T) ?Order {
+    ///     return partial_cmp(x,y);
+    ///   }
+    /// }.cmp;
+    /// ```
+    /// 
+    /// Using `on`, you can obtain such specialized versions on the fly.
+    /// ```
+    /// val specialized_to_T = PartialOrd.on(T);
+    /// ```
     pub fn on(comptime T: type) fn (T, T) std.math.Order {
         return struct {
             fn call(x: T, y: T) std.math.Order {
