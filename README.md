@@ -19,7 +19,7 @@ Further, some associated polymorphic functions are able to be implemented to eac
 
 ## Examples
 
-### Checking Clonable
+### Check for cloneability
 
 When you want to implement `clone` on a container type only for types that are clonable.
 
@@ -51,7 +51,7 @@ var n = Container(N);
 ```
 
 
-### Comparing totally
+### Comparison by total order
 
 When you want to pass an ordering function for a key type of a Mapping container.
 
