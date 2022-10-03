@@ -6,10 +6,7 @@ const trivial_eq = @import("./trivial_eq.zig");
 const trait = std.meta.trait;
 const testing = std.testing;
 
-const math = std.math;
 const assert = std.debug.assert;
-const is_or_ptrto = meta.is_or_ptrto;
-const have_type = meta.have_type;
 const have_fun = meta.have_fun;
 
 /// Checks if type `T` satisfies the concept `PartialEq`.
@@ -130,7 +127,7 @@ comptime {
 /// Checks if the type `T` satisfies the concept `PartialEq` or
 /// is a pointer type to such a type.
 pub fn isPartialEq(comptime T: type) bool {
-    comptime return is_or_ptrto(implPartialEq)(T);
+    comptime return meta.is_or_ptrto(implPartialEq)(T);
 }
 
 test "isPartialEq" {
