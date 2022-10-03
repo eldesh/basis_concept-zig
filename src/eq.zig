@@ -535,30 +535,33 @@ test "Eq" {
 /// ```
 ///
 pub fn DeriveEq(comptime T: type) type {
+    comptime assert(isEq(T));
     comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
+    comptime {
+        // check pre-conditions of `T`
+        for (std.meta.fields(T)) |field| {
+            if (!isEq(field.field_type))
+                @compileError("Cannot Derive Eq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+            if (trait.isSingleItemPtr(field.field_type))
+                @compileError("Cannot Derive Eq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+        }
+    }
     return struct {
         pub fn eq(self: *const T, other: *const T) bool {
             if (comptime trait.is(.Struct)(T)) {
                 inline for (std.meta.fields(T)) |field| {
-                    if (comptime trait.isSingleItemPtr(field.field_type))
-                        @compileError("Cannot Derive Eq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
                     if (!Eq.eq(&@field(self, field.name), &@field(other, field.name)))
                         return false;
                 }
                 return true;
             }
             if (comptime trait.is(.Union)(T)) {
-                if (@typeInfo(T).Union.tag_type == null)
-                    @compileError("Cannot Derive Eq for untagged union type " ++ @typeName(T));
-
-                const tag = @typeInfo(T).Union.tag_type.?;
+                const tag = comptime @typeInfo(T).Union.tag_type.?;
                 const self_tag = std.meta.activeTag(self.*);
                 const other_tag = std.meta.activeTag(other.*);
                 if (self_tag != other_tag) return false;
 
                 inline for (std.meta.fields(T)) |field| {
-                    if (comptime trait.isSingleItemPtr(field.field_type))
-                        @compileError("Cannot Derive Eq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
                     if (@field(tag, field.name) == self_tag)
                         return Eq.eq(&@field(self, field.name), &@field(other, field.name));
                 }

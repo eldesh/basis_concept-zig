@@ -488,30 +488,33 @@ test "PartialEq" {
 /// ```
 ///
 pub fn DerivePartialEq(comptime T: type) type {
+    comptime assert(isPartialEq(T));
     comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
+    comptime {
+        // check pre-conditions of `T`
+        for (std.meta.fields(T)) |field| {
+            if (!isPartialEq(field.field_type))
+                @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+            if (trait.isSingleItemPtr(field.field_type))
+                @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+        }
+    }
     return struct {
         pub fn eq(self: *const T, other: *const T) bool {
             if (comptime trait.is(.Struct)(T)) {
                 inline for (std.meta.fields(T)) |field| {
-                    if (comptime trait.isSingleItemPtr(field.field_type))
-                        @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
                     if (!PartialEq.eq(&@field(self, field.name), &@field(other, field.name)))
                         return false;
                 }
                 return true;
             }
             if (comptime trait.is(.Union)(T)) {
-                if (@typeInfo(T).Union.tag_type == null)
-                    @compileError("Cannot Derive PartialEq for untagged union type " ++ @typeName(T));
-
-                const tag = @typeInfo(T).Union.tag_type.?;
+                const tag = comptime @typeInfo(T).Union.tag_type.?;
                 const self_tag = std.meta.activeTag(self.*);
                 const other_tag = std.meta.activeTag(other.*);
                 if (self_tag != other_tag) return false;
 
                 inline for (std.meta.fields(T)) |field| {
-                    if (comptime trait.isSingleItemPtr(field.field_type))
-                        @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
                     if (@field(tag, field.name) == self_tag)
                         return PartialEq.eq(&@field(self, field.name), &@field(other, field.name));
                 }
