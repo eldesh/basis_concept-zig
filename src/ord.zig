@@ -8,11 +8,8 @@ const testing = std.testing;
 
 const assert = std.debug.assert;
 
-pub fn implOrd(comptime T: type) bool {
+fn implOrd(comptime T: type) bool {
     comptime {
-        if (!partial_ord.implPartialOrd(T))
-            return false;
-
         if (trait.is(.Void)(T))
             return true;
         if (trait.is(.Bool)(T))
@@ -60,7 +57,7 @@ pub fn implOrd(comptime T: type) bool {
 }
 
 pub fn isOrd(comptime T: type) bool {
-    comptime return partial_ord.isPartialOrd(T) and meta.is_or_ptrto(implOrd)(T);
+    comptime return meta.is_or_ptrto(implOrd)(T);
 }
 
 comptime {

@@ -11,11 +11,8 @@ const assert = std.debug.assert;
 const have_fun = meta.have_fun;
 
 /// Checks if type `T` satisfies the concept `Eq`.
-pub fn implEq(comptime T: type) bool {
+fn implEq(comptime T: type) bool {
     comptime {
-        if (!partial_eq.implPartialEq(T))
-            return false;
-
         if (trivial_eq.isTrivialEq(T) and !trait.is(.Float)(T) and !trait.is(.ComptimeFloat)(T))
             return true;
         if (trait.is(.Array)(T) or trait.is(.Optional)(T))

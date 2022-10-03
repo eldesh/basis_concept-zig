@@ -9,7 +9,7 @@ const is_or_ptrto = meta.is_or_ptrto;
 ///
 /// # Details
 /// Values of that types are able to be duplicated with just copying the binary sequence.
-pub fn implCopy(comptime T: type) bool {
+fn implCopy(comptime T: type) bool {
     comptime {
         if (trait.is(.Void)(T))
             return true;

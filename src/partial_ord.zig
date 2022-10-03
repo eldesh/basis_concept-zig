@@ -7,7 +7,7 @@ const testing = std.testing;
 
 const assert = std.debug.assert;
 
-pub fn implPartialOrd(comptime T: type) bool {
+fn implPartialOrd(comptime T: type) bool {
     comptime {
         if (trait.is(.Void)(T))
             return true;

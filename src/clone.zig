@@ -6,27 +6,54 @@ const copy = @import("./copy.zig");
 const testing = std.testing;
 const trait = std.meta.trait;
 const assert = std.debug.assert;
-const is_or_ptrto = meta.is_or_ptrto;
 const have_type = meta.have_type;
 const have_fun = meta.have_fun;
 const deref_type = meta.deref_type;
 
 fn implClone(comptime T: type) bool {
     comptime {
-        if (copy.implCopy(T))
+        if (trait.is(.Void)(T))
             return true;
-
-        if (have_fun(T, "clone")) |clone_ty| {
-            const Error: type = Error: {
-                if (have_type(T, "CloneError")) |CloneError| {
-                    if (!trait.is(.ErrorSet)(CloneError))
+        if (trait.is(.Bool)(T) or trait.is(.Null)(T))
+            return true;
+        if (trait.isNumber(T))
+            return true;
+        if (trait.is(.Vector)(T) or trait.is(.Array)(T) or trait.is(.Optional)(T))
+            return implClone(std.meta.Child(T));
+        if (trait.is(.Fn)(T))
+            return true;
+        if (trait.is(.Enum)(T))
+            return implClone(@typeInfo(T).Enum.tag_type);
+        if (trait.is(.EnumLiteral)(T))
+            return true;
+        if (trait.is(.ErrorSet)(T))
+            return true;
+        if (trait.is(.ErrorUnion)(T))
+            return implClone(@typeInfo(T).ErrorUnion.error_set) and implClone(@typeInfo(T).ErrorUnion.payload);
+        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
+            if (have_fun(T, "clone")) |clone_ty| {
+                const Error: type = Error: {
+                    if (have_type(T, "CloneError")) |CloneError| {
+                        assert(trait.is(.ErrorSet)(CloneError));
+                        break :Error CloneError;
+                    } else {
+                        break :Error Clone.EmptyError;
+                    }
+                };
+                return (clone_ty == (fn (*const T) Error!T));
+            }
+            if (trait.is(.Union)(T)) {
+                if (@typeInfo(T).Union.tag_type) |tag| {
+                    if (!implClone(tag))
                         return false;
-                    break :Error CloneError;
-                } else {
-                    break :Error Clone.EmptyError;
                 }
-            };
-            return clone_ty == fn (*const T) Error!T;
+            }
+            inline for (std.meta.fields(T)) |field| {
+                if (!implClone(field.field_type))
+                    return false;
+            }
+            // all type of fields are copyable
+            return true;
         }
         return false;
     }
@@ -44,7 +71,7 @@ comptime {
         pub const CloneError: type = error{CloneError};
         x: u32,
         pub fn clone(self: *const Self) CloneError!Self {
-            return .{ .x = self.x };
+            return Self{ .x = self.x };
         }
     };
     assert(implClone(T));
@@ -61,7 +88,7 @@ comptime {
         // pub const CloneError: type = undefined;
         x: u32,
         pub fn clone(self: *const Self) Clone.EmptyError!Self {
-            return .{ .x = self.x };
+            return Self{ .x = self.x };
         }
     };
     assert(implClone(U));
@@ -72,7 +99,7 @@ comptime {
 }
 
 pub fn isClonable(comptime T: type) bool {
-    comptime return is_or_ptrto(implClone)(T);
+    comptime return meta.is_or_ptrto(implClone)(T);
 }
 
 pub const Clone = struct {
@@ -97,7 +124,7 @@ pub const Clone = struct {
         const E = std.meta.Child(T);
         if (comptime have_fun(E, "clone")) |_|
             return value.clone();
-        comptime assert(copy.implCopy(E));
+        comptime assert(copy.isCopyable(T));
         return value.*;
     }
 

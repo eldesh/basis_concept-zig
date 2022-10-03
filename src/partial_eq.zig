@@ -13,7 +13,7 @@ const have_type = meta.have_type;
 const have_fun = meta.have_fun;
 
 /// Checks if type `T` satisfies the concept `PartialEq`.
-pub fn implPartialEq(comptime T: type) bool {
+fn implPartialEq(comptime T: type) bool {
     comptime {
         if (trivial_eq.isTrivialEq(T))
             return true;
