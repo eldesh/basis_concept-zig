@@ -35,9 +35,11 @@ fn implPartialEq(comptime T: type) bool {
                     return eq == sig and ne == sig;
                 return eq == sig;
             }
-            if (meta.tag_of(T) catch null) |tag| { // get tag of Union
-                if (!implPartialEq(tag))
-                    return false;
+            if (trait.is(.Union)(T)) {
+                if (meta.tag_of(T) catch null) |tag| { // get tag of Union
+                    if (!implPartialEq(tag))
+                        return false;
+                } else return false;
             }
             return meta.all_field_types(T, implPartialEq);
         }
