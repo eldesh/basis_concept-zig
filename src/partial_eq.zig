@@ -17,7 +17,9 @@ fn implPartialEq(comptime T: type) bool {
     comptime {
         if (trivial_eq.isTrivialEq(T))
             return true;
-        if (trait.is(.Array)(T) or trait.is(.Optional)(T))
+        if (trait.is(.Array)(T))
+            return implPartialEq(std.meta.Child(T));
+        if (trait.is(.Optional)(T))
             return implPartialEq(std.meta.Child(T));
         if (trait.is(.Vector)(T) and trivial_eq.isTrivialEq(std.meta.Child(T)))
             return implPartialEq(std.meta.Child(T));

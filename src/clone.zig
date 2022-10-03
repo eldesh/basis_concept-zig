@@ -14,11 +14,17 @@ fn implClone(comptime T: type) bool {
     comptime {
         if (trait.is(.Void)(T))
             return true;
-        if (trait.is(.Bool)(T) or trait.is(.Null)(T))
+        if (trait.is(.Bool)(T))
+            return true;
+        if (trait.is(.Null)(T))
             return true;
         if (trait.isNumber(T))
             return true;
-        if (trait.is(.Vector)(T) or trait.is(.Array)(T) or trait.is(.Optional)(T))
+        if (trait.is(.Vector)(T))
+            return implClone(std.meta.Child(T));
+        if (trait.is(.Array)(T))
+            return implClone(std.meta.Child(T));
+        if (trait.is(.Optional)(T))
             return implClone(std.meta.Child(T));
         if (trait.is(.Fn)(T))
             return true;

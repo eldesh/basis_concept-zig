@@ -13,9 +13,15 @@ const have_fun = meta.have_fun;
 /// Checks if type `T` satisfies the concept `Eq`.
 fn implEq(comptime T: type) bool {
     comptime {
-        if (trivial_eq.isTrivialEq(T) and !trait.is(.Float)(T) and !trait.is(.ComptimeFloat)(T))
+        if (trait.is(.Float)(T))
+            return false;
+        if (trait.is(.ComptimeFloat)(T))
+            return false;
+        if (trivial_eq.isTrivialEq(T))
             return true;
-        if (trait.is(.Array)(T) or trait.is(.Optional)(T))
+        if (trait.is(.Array)(T))
+            return implEq(std.meta.Child(T));
+        if (trait.is(.Optional)(T))
             return implEq(std.meta.Child(T));
         if (trait.is(.Vector)(T) and trivial_eq.isTrivialEq(std.meta.Child(T)))
             return implEq(std.meta.Child(T));
