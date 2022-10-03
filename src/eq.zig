@@ -153,13 +153,22 @@ test "isEq" {
 pub const Eq = struct {
     fn eq_array(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.Array)(T));
-        if (x.len != y.len)
-            return false;
+        comptime assert(x.len == y.len);
         for (x) |xv, i| {
             if (!eq_impl(&xv, &y[i]))
                 return false;
         }
         return true;
+    }
+
+    fn ne_array(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Array)(T));
+        comptime assert(x.len == y.len);
+        for (x) |xv, i| {
+            if (ne_impl(&xv, &y[i]))
+                return true;
+        }
+        return false;
     }
 
     fn eq_optional(comptime T: type, x: T, y: T) bool {
@@ -168,6 +177,15 @@ pub const Eq = struct {
             return if (y.*) |yv| eq_impl(&xv, &yv) else false;
         } else {
             return y.* == null;
+        }
+    }
+
+    fn ne_optional(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Optional)(T));
+        if (x.*) |xv| {
+            return if (y.*) |yv| ne_impl(&xv, &yv) else true;
+        } else {
+            return y.* != null;
         }
     }
 
@@ -181,12 +199,31 @@ pub const Eq = struct {
         return true;
     }
 
+    fn ne_vector(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Vector)(T));
+        var i: usize = 0;
+        while (i < @typeInfo(std.meta.Child(T)).Vector.len) : (i += 1) {
+            if (x.*[i] != y.*[i])
+                return true;
+        }
+        return false;
+    }
+
     fn eq_error_union(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.ErrorUnion)(T));
         if (x.*) |xv| {
             return if (y.*) |yv| eq_impl(&xv, &yv) else |_| false;
         } else |xv| {
             return if (y.*) |_| false else |yv| xv == yv;
+        }
+    }
+
+    fn ne_error_union(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.ErrorUnion)(T));
+        if (x.*) |xv| {
+            return if (y.*) |yv| ne_impl(&xv, &yv) else |_| true;
+        } else |xv| {
+            return if (y.*) |_| true else |yv| xv != yv;
         }
     }
 
@@ -217,6 +254,36 @@ pub const Eq = struct {
         unreachable;
     }
 
+    fn ne_impl(x: anytype, y: @TypeOf(x)) bool {
+        const T = @TypeOf(x);
+        comptime assert(trait.isSingleItemPtr(T));
+        const E = std.meta.Child(T);
+        comptime assert(implEq(E));
+
+        if (comptime trivial_eq.isTrivialEq(E))
+            return x.* != y.*;
+
+        if (comptime trait.is(.Array)(E))
+            return ne_array(T, x, y);
+
+        if (comptime trait.is(.Optional)(E))
+            return ne_optional(T, x, y);
+
+        if (comptime trait.is(.Vector)(E))
+            return ne_vector(T, x, y);
+
+        if (comptime trait.is(.ErrorUnion)(E))
+            return ne_error_union(T, x, y);
+
+        if (comptime have_fun(E, "ne")) |_|
+            return x.ne(y);
+
+        if (comptime have_fun(E, "eq")) |_|
+            return x.eq(y);
+
+        unreachable;
+    }
+
     /// Compare the values
     ///
     /// # Details
@@ -231,7 +298,12 @@ pub const Eq = struct {
     }
 
     pub fn ne(x: anytype, y: @TypeOf(x)) bool {
-        return !eq(x, y);
+        const T = @TypeOf(x);
+        comptime assert(isEq(T));
+
+        if (comptime !trait.isSingleItemPtr(T))
+            return ne_impl(&x, &y);
+        return ne_impl(x, y);
     }
 
     /// Acquiring a type has functions `eq` and `ne` specialized for `T`.
