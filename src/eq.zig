@@ -11,6 +11,14 @@ const assert = std.debug.assert;
 const have_fun = meta.have_fun;
 
 /// Checks if type `T` satisfies the concept `Eq`.
+///
+/// # Details
+/// Checks the type `T` satisfies at least one of the following conditions:
+/// - `T` is `isTrivialEq` and is not floating point number or
+/// - `T` is an Array, an Optional, a Vector or an ErrorUnion type
+/// - `T` is a struct or a tagged-union type and all fields are `Eq` or
+/// - `T` has an `eq` method
+/// - `T` has an `eq` and a `ne` method
 fn implEq(comptime T: type) bool {
     comptime {
         if (trait.is(.Float)(T))
@@ -229,6 +237,48 @@ pub const Eq = struct {
         }
     }
 
+    fn eq_struct(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Struct)(T));
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (!eq_impl(&@field(x, field.name), &@field(y, field.name)))
+                return false;
+        }
+        return true;
+    }
+
+    fn ne_struct(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Struct)(T));
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (ne_impl(&@field(x, field.name), &@field(y, field.name)))
+                return true;
+        }
+        return false;
+    }
+
+    fn eq_union(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Union)(T));
+        const tag = comptime meta.tag_of(T) catch unreachable;
+        if (std.meta.activeTag(x) != std.meta.activeTag(y))
+            return false;
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (@field(tag, field.name) == std.meta.activeTag(x))
+                return eq_impl(&@field(x, field.name), &@field(y, field.name));
+        }
+        return true;
+    }
+
+    fn ne_union(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Union)(T));
+        const tag = comptime meta.tag_of(T) catch unreachable;
+        if (std.meta.activeTag(x) != std.meta.activeTag(y))
+            return true;
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (@field(tag, field.name) == std.meta.activeTag(x))
+                return ne_impl(&@field(x, field.name), &@field(y, field.name));
+        }
+        return false;
+    }
+
     fn eq_impl(x: anytype, y: @TypeOf(x)) bool {
         const T = @TypeOf(x);
         comptime assert(trait.isSingleItemPtr(T));
@@ -252,6 +302,12 @@ pub const Eq = struct {
 
         if (comptime have_fun(E, "eq")) |_|
             return x.eq(y);
+
+        if (comptime trait.is(.Struct)(E))
+            return eq_struct(T, x, y);
+
+        if (comptime trait.is(.Union)(E))
+            return eq_union(T, x, y);
 
         unreachable;
     }
@@ -281,7 +337,13 @@ pub const Eq = struct {
             return x.ne(y);
 
         if (comptime have_fun(E, "eq")) |_|
-            return x.eq(y);
+            return !x.eq(y);
+
+        if (comptime trait.is(.Struct)(E))
+            return ne_struct(T, x, y);
+
+        if (comptime trait.is(.Union)(E))
+            return ne_union(T, x, y);
 
         unreachable;
     }
@@ -375,6 +437,44 @@ test "Eq" {
     {
         const T = struct {
             val: u32,
+        };
+        const x = T{ .val = 5 };
+        const y = T{ .val = 5 };
+        try testing.expect(Eq.eq(x, y));
+        try testing.expect(!Eq.ne(x, y));
+        const arr1 = [_]T{x};
+        const arr2 = [_]T{y};
+        try testing.expect(Eq.eq(&arr1, &arr2));
+        try testing.expect(!Eq.ne(&arr1, &arr2));
+        const arr11 = [1]?[1]T{@as(?[1]T, [_]T{x})};
+        const arr22 = [1]?[1]T{@as(?[1]T, [_]T{y})};
+        try testing.expect(Eq.eq(&arr11, &arr22));
+        try testing.expect(!Eq.ne(&arr11, &arr22));
+    }
+    {
+        const T = struct {
+            val: u32,
+            // impl `eq` manually
+            pub fn eq(self: *const @This(), other: *const @This()) bool {
+                return self.val == other.val;
+            }
+        };
+        const x = T{ .val = 5 };
+        const y = T{ .val = 5 };
+        try testing.expect(Eq.eq(x, y));
+        try testing.expect(!Eq.ne(x, y));
+        const arr1 = [_]T{x};
+        const arr2 = [_]T{y};
+        try testing.expect(Eq.eq(&arr1, &arr2));
+        try testing.expect(!Eq.ne(&arr1, &arr2));
+        const arr11 = [1]?[1]T{@as(?[1]T, [_]T{x})};
+        const arr22 = [1]?[1]T{@as(?[1]T, [_]T{y})};
+        try testing.expect(Eq.eq(&arr11, &arr22));
+        try testing.expect(!Eq.ne(&arr11, &arr22));
+    }
+    {
+        const T = struct {
+            val: u32,
             fn new(val: u32) @This() {
                 return .{ .val = val };
             }
@@ -382,6 +482,7 @@ test "Eq" {
             pub fn eq(self: *const @This(), other: *const @This()) bool {
                 return self.val == other.val;
             }
+            // impl `ne` too
             pub fn ne(self: *const @This(), other: *const @This()) bool {
                 return !self.eq(other);
             }

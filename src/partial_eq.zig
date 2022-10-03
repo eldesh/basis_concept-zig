@@ -12,7 +12,12 @@ const have_fun = meta.have_fun;
 /// Checks if type `T` satisfies the concept `PartialEq`.
 ///
 /// # Details
-/// Checks the type `T` satisfies `isTrivialEq` or has `eq` and `ne` method.
+/// Checks the type `T` satisfies at least one of the following conditions:
+/// - `T` is `isTrivialEq` or
+/// - `T` is an Array, an Optional, a Vector or an ErrorUnion type
+/// - `T` is a struct or tagged-union type and all fields are `PartialEq` or
+/// - `T` has an `eq` method
+/// - `T` has an `eq` and a `ne` method
 fn implPartialEq(comptime T: type) bool {
     comptime {
         if (trivial_eq.isTrivialEq(T))
@@ -204,6 +209,7 @@ pub const PartialEq = struct {
         }
         return true;
     }
+
     fn ne_vector(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.Vector)(T));
         var i: usize = 0;
@@ -232,6 +238,48 @@ pub const PartialEq = struct {
         }
     }
 
+    fn eq_struct(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Struct)(T));
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (!eq_impl(&@field(x, field.name), &@field(y, field.name)))
+                return false;
+        }
+        return true;
+    }
+
+    fn ne_struct(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Struct)(T));
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (ne_impl(&@field(x, field.name), &@field(y, field.name)))
+                return true;
+        }
+        return false;
+    }
+
+    fn eq_union(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Union)(T));
+        const tag = comptime meta.tag_of(T) catch unreachable;
+        if (std.meta.activeTag(x) != std.meta.activeTag(y))
+            return false;
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (@field(tag, field.name) == std.meta.activeTag(x))
+                return eq_impl(&@field(x, field.name), &@field(y, field.name));
+        }
+        return true;
+    }
+
+    fn ne_union(comptime T: type, x: T, y: T) bool {
+        comptime assert(trait.isPtrTo(.Union)(T));
+        const tag = comptime meta.tag_of(T) catch unreachable;
+        if (std.meta.activeTag(x) != std.meta.activeTag(y))
+            return true;
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            if (@field(tag, field.name) == std.meta.activeTag(x))
+                return ne_impl(&@field(x, field.name), &@field(y, field.name));
+        }
+        return false;
+    }
+
     fn eq_impl(x: anytype, y: @TypeOf(x)) bool {
         const T = @TypeOf(x);
         comptime assert(trait.isSingleItemPtr(T));
@@ -255,6 +303,12 @@ pub const PartialEq = struct {
 
         if (comptime have_fun(E, "eq")) |_|
             return x.eq(y);
+
+        if (comptime trait.is(.Struct)(E))
+            return eq_struct(T, x, y);
+
+        if (comptime trait.is(.Union)(E))
+            return eq_union(T, x, y);
 
         unreachable;
     }
@@ -284,7 +338,13 @@ pub const PartialEq = struct {
             return x.ne(y);
 
         if (comptime have_fun(E, "eq")) |_|
-            return x.eq(y);
+            return !x.eq(y);
+
+        if (comptime trait.is(.Struct)(E))
+            return ne_struct(T, x, y);
+
+        if (comptime trait.is(.Union)(E))
+            return ne_union(T, x, y);
 
         unreachable;
     }
