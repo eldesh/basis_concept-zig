@@ -38,28 +38,15 @@ fn implClone(comptime T: type) bool {
             return implClone(@typeInfo(T).ErrorUnion.error_set) and implClone(@typeInfo(T).ErrorUnion.payload);
         if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
             if (have_fun(T, "clone")) |clone_ty| {
-                const Error: type = Error: {
-                    if (have_type(T, "CloneError")) |CloneError| {
-                        assert(trait.is(.ErrorSet)(CloneError));
-                        break :Error CloneError;
-                    } else {
-                        break :Error Clone.EmptyError;
-                    }
-                };
-                return (clone_ty == (fn (*const T) Error!T));
+                const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
+                return (clone_ty == (fn (*const T) Err!T));
             }
-            if (trait.is(.Union)(T)) {
-                if (@typeInfo(T).Union.tag_type) |tag| {
-                    if (!implClone(tag))
-                        return false;
-                }
-            }
-            inline for (std.meta.fields(T)) |field| {
-                if (!implClone(field.field_type))
+            if (meta.tag_of(T) catch null) |tag| {
+                if (!implClone(tag))
                     return false;
             }
-            // all type of fields are copyable
-            return true;
+            // all type of fields are cloneable
+            return meta.all_field_types(T, implClone);
         }
         return false;
     }

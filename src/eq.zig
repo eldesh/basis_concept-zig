@@ -27,8 +27,19 @@ fn implEq(comptime T: type) bool {
             return implEq(std.meta.Child(T));
         if (trait.is(.ErrorUnion)(T) and implEq(@typeInfo(T).ErrorUnion.payload))
             return true;
-        if (have_fun(T, "eq")) |ty|
-            return ty == fn (*const T, *const T) bool;
+        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
+            if (have_fun(T, "eq")) |eq| {
+                const sig = fn (*const T, *const T) bool;
+                if (have_fun(T, "ne")) |ne|
+                    return eq == sig and ne == sig;
+                return eq == sig;
+            }
+            if (meta.tag_of(T) catch null) |tag| { // get tag of Union
+                if (!implEq(tag))
+                    return false;
+            }
+            return meta.all_field_types(T, implEq);
+        }
         return false;
     }
 }
@@ -116,7 +127,7 @@ comptime {
 /// Checks if the type `T` satisfies the concept `Eq` or
 /// is a pointer type to such a type.
 pub fn isEq(comptime T: type) bool {
-    comptime return partial_eq.isPartialEq(T) and meta.is_or_ptrto(implEq)(T);
+    comptime return meta.is_or_ptrto(implEq)(T);
 }
 
 test "isEq" {

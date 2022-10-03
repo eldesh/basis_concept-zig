@@ -13,6 +13,9 @@ const have_type = meta.have_type;
 const have_fun = meta.have_fun;
 
 /// Checks if type `T` satisfies the concept `PartialEq`.
+///
+/// # Details
+/// Checks the type `T` satisfies `isTrivialEq` or has `eq` and `ne` method.
 fn implPartialEq(comptime T: type) bool {
     comptime {
         if (trivial_eq.isTrivialEq(T))
@@ -25,12 +28,18 @@ fn implPartialEq(comptime T: type) bool {
             return implPartialEq(std.meta.Child(T));
         if (trait.is(.ErrorUnion)(T) and implPartialEq(@typeInfo(T).ErrorUnion.payload))
             return true;
-        if (have_fun(T, "eq")) |eq| {
-            if (have_fun(T, "ne")) |ne| {
+        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
+            if (have_fun(T, "eq")) |eq| {
                 const sig = fn (*const T, *const T) bool;
-                return eq == sig and ne == sig;
+                if (have_fun(T, "ne")) |ne|
+                    return eq == sig and ne == sig;
+                return eq == sig;
             }
-            return false;
+            if (meta.tag_of(T) catch null) |tag| { // get tag of Union
+                if (!implPartialEq(tag))
+                    return false;
+            }
+            return meta.all_field_types(T, implPartialEq);
         }
         return false;
     }

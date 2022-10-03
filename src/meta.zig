@@ -3,6 +3,18 @@ const std = @import("std");
 const trait = std.meta.trait;
 const assert = std.debug.assert;
 
+pub const TypeKindError = error{
+    NotEnumOrUnionError,
+};
+
+pub fn tag_of(comptime T: type) TypeKindError!?type {
+    return switch (@typeInfo(T)) {
+        .Enum => |info| info.tag_type,
+        .Union => |info| info.tag_type,
+        else => TypeKindError.NotEnumOrUnionError,
+    };
+}
+
 pub fn have_type(comptime T: type, name: []const u8) ?type {
     comptime {
         if (!trait.isContainer(T))
@@ -56,6 +68,7 @@ comptime {
     assert(deref_type(*U) == U);
 }
 
+/// F(T) or F(T.*)
 pub fn is_or_ptrto(comptime F: fn (type) bool) fn (type) bool {
     comptime {
         return struct {
@@ -65,5 +78,16 @@ pub fn is_or_ptrto(comptime F: fn (type) bool) fn (type) bool {
                 return trait.isSingleItemPtr(U) and F(std.meta.Child(U));
             }
         }.pred;
+    }
+}
+
+/// forall field:std.meta.fields(T), P(field.field_type).
+pub fn all_field_types(comptime T: type, comptime P: fn (type) bool) bool {
+    comptime {
+        for (std.meta.fields(T)) |field| {
+            if (!P(field.field_type))
+                return false;
+        }
+        return true;
     }
 }

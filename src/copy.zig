@@ -30,18 +30,12 @@ fn implCopy(comptime T: type) bool {
         if (trait.is(.ErrorUnion)(T))
             return implCopy(@typeInfo(T).ErrorUnion.error_set) and implCopy(@typeInfo(T).ErrorUnion.payload);
         if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
-            if (trait.is(.Union)(T)) {
-                if (@typeInfo(T).Union.tag_type) |tag| {
-                    if (!implCopy(tag))
-                        return false;
-                }
-            }
-            inline for (std.meta.fields(T)) |field| {
-                if (!implCopy(field.field_type))
+            if (meta.tag_of(T) catch null) |tag| {
+                if (!implCopy(tag))
                     return false;
             }
             // all type of fields are copyable
-            return true;
+            return meta.all_field_types(T, implCopy);
         }
         return false;
     }

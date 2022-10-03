@@ -32,25 +32,12 @@ fn implOrd(comptime T: type) bool {
             return true;
         if (meta.have_fun(T, "cmp")) |ty|
             return ty == fn (*const T, *const T) std.math.Order;
-        if (trait.is(.Union)(T)) {
-            if (@typeInfo(T).Union.tag_type) |tag| {
+        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
+            if (meta.tag_of(T) catch null) |tag| {
                 if (!implOrd(tag))
                     return false;
             }
-            inline for (std.meta.fields(T)) |field| {
-                if (!implOrd(field.field_type))
-                    return false;
-            }
-            // all type of fields are comparable
-            return true;
-        }
-        if (trait.is(.Struct)(T)) {
-            inline for (std.meta.fields(T)) |field| {
-                if (!implOrd(field.field_type))
-                    return false;
-            }
-            // all type of fields are comparable
-            return true;
+            return meta.all_field_types(T, implOrd);
         }
         return false;
     }
