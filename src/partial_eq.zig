@@ -51,7 +51,7 @@ comptime {
     assert(implPartialEq(@TypeOf(null)));
     assert(implPartialEq(std.meta.Vector(4, u32)));
     assert(implPartialEq(u32));
-    assert(!implPartialEq(struct { val: f32 }));
+    assert(implPartialEq(struct { val: f32 }));
     assert(implPartialEq(struct {
         val: u32,
 
@@ -71,7 +71,7 @@ comptime {
     assert(implPartialEq([5]u32));
     assert(implPartialEq(enum { A, B, C }));
     const U = union(enum) { Tag1, Tag2, Tag3 };
-    assert(!implPartialEq(U));
+    assert(implPartialEq(U));
     assert(!implPartialEq(*U));
     assert(!implPartialEq(*const U));
     const UEq = union(enum) {
@@ -91,10 +91,10 @@ comptime {
     const OverflowError = error{Overflow};
     assert(implPartialEq(@TypeOf(.Overflow))); // EnumLiteral
     assert(implPartialEq(OverflowError)); // ErrorSet
-    assert(!implPartialEq(OverflowError![2]U)); // ErrorUnion
-    assert(!implPartialEq(?(error{Overflow}![2]U)));
+    assert(implPartialEq(OverflowError![2]U)); // ErrorUnion
+    assert(implPartialEq(?(error{Overflow}![2]U)));
     assert(implPartialEq(?(error{Overflow}![2]UEq)));
-    assert(!implPartialEq(struct { val: ?(error{Overflow}![2]U) }));
+    assert(implPartialEq(struct { val: ?(error{Overflow}![2]U) }));
     assert(implPartialEq(struct {
         val: ?(error{Overflow}![2]UEq),
         pub fn eq(self: *const @This(), other: *const @This()) bool {

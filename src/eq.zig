@@ -70,7 +70,7 @@ comptime {
     assert(implEq([5]u32));
     assert(implEq(enum { A, B, C }));
     const U = union(enum) { Tag1, Tag2, Tag3 };
-    assert(!implEq(U));
+    assert(implEq(U));
     assert(!implEq(*U));
     assert(!implEq(*const U));
     const UEq = union(enum) {
@@ -90,10 +90,10 @@ comptime {
     const OverflowError = error{Overflow};
     assert(implEq(@TypeOf(.Overflow))); // EnumLiteral
     assert(implEq(OverflowError)); // ErrorSet
-    assert(!implEq(OverflowError![2]U)); // ErrorUnion
-    assert(!implEq(?(error{Overflow}![2]U)));
+    assert(implEq(OverflowError![2]U)); // ErrorUnion
+    assert(implEq(?(error{Overflow}![2]U)));
     assert(implEq(?(error{Overflow}![2]UEq)));
-    assert(!implEq(struct { val: ?(error{Overflow}![2]U) }));
+    assert(implEq(struct { val: ?(error{Overflow}![2]U) }));
     assert(implEq(struct {
         val: ?(error{Overflow}![2]UEq),
         pub fn eq(self: *const @This(), other: *const @This()) bool {
