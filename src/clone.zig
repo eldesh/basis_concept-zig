@@ -12,43 +12,22 @@ const deref_type = meta.deref_type;
 
 fn implClone(comptime T: type) bool {
     comptime {
-        if (trait.is(.Void)(T))
-            return true;
-        if (trait.is(.Bool)(T))
-            return true;
-        if (trait.is(.Null)(T))
-            return true;
-        if (trait.isNumber(T))
-            return true;
-        if (trait.is(.Vector)(T))
-            return implClone(std.meta.Child(T));
-        if (trait.is(.Array)(T))
-            return implClone(std.meta.Child(T));
-        if (trait.is(.Optional)(T))
-            return implClone(std.meta.Child(T));
-        if (trait.is(.Fn)(T))
-            return true;
-        if (trait.is(.Enum)(T))
-            return implClone(@typeInfo(T).Enum.tag_type);
-        if (trait.is(.EnumLiteral)(T))
-            return true;
-        if (trait.is(.ErrorSet)(T))
-            return true;
-        if (trait.is(.ErrorUnion)(T))
-            return implClone(@typeInfo(T).ErrorUnion.error_set) and implClone(@typeInfo(T).ErrorUnion.payload);
-        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
-            if (have_fun(T, "clone")) |clone_ty| {
-                const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
-                return (clone_ty == (fn (*const T) Err!T));
-            }
-            if (meta.tag_of(T) catch null) |tag| {
-                if (!implClone(tag))
-                    return false;
-            }
-            // all type of fields are cloneable
-            return meta.all_field_types(T, implClone);
-        }
-        return false;
+        return switch (@typeInfo(T)) {
+            .Void, .Bool, .Null, .Int, .ComptimeInt, .Float, .ComptimeFloat, .Fn, .EnumLiteral, .ErrorSet => true,
+            .Vector, .Array, .Optional => implClone(std.meta.Child(T)),
+            .Enum => |Enum| implClone(Enum.tag_type),
+            .ErrorUnion => |ErrorUnion| implClone(ErrorUnion.error_set) and implClone(ErrorUnion.payload),
+            .Struct, .Union => block: {
+                if (have_fun(T, "clone")) |clone_ty| {
+                    const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
+                    break :block (clone_ty == fn (*const T) Err!T);
+                } else {
+                    const tagClone = if (meta.tag_of(T) catch null) |tag| implClone(tag) else true;
+                    break :block tagClone and meta.all_field_types(T, implClone);
+                }
+            },
+            else => false,
+        };
     }
 }
 
