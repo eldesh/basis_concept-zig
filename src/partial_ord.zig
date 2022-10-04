@@ -210,24 +210,31 @@ comptime {
 }
 
 test "PartialOrd" {
+    const Order = std.math.Order;
+    const opt = struct {
+        fn f(x: Order) ?Order {
+            return x;
+        }
+    }.f;
+
     // compares primitive type
-    try testing.expectEqual(PartialOrd.partial_cmp(null, null), .eq);
+    try testing.expectEqual(opt(Order.eq), PartialOrd.partial_cmp(null, null));
 
     const five: u32 = 5;
     const six: u32 = 6;
-    try testing.expectEqual(PartialOrd.partial_cmp(five, six), .lt);
-    try testing.expectEqual(PartialOrd.partial_cmp(&five, &six), .lt);
+    try testing.expectEqual(opt(Order.lt), PartialOrd.partial_cmp(five, six));
+    try testing.expectEqual(opt(Order.lt), PartialOrd.partial_cmp(&five, &six));
 
     const fiveh: f64 = 5.5;
     const sixh: f64 = 6.5;
-    try testing.expectEqual(PartialOrd.partial_cmp(fiveh, sixh), .lt);
-    try testing.expectEqual(PartialOrd.partial_cmp(&fiveh, &sixh), .lt);
+    try testing.expectEqual(opt(Order.lt), PartialOrd.partial_cmp(fiveh, sixh));
+    try testing.expectEqual(opt(Order.lt), PartialOrd.partial_cmp(&fiveh, &sixh));
 
     // compares sequence type
     const ax = [3]u32{ 0, 1, 2 };
     const bx = [3]u32{ 0, 1, 3 };
-    try testing.expectEqual(PartialOrd.partial_cmp(ax, bx), .lt);
-    try testing.expectEqual(PartialOrd.partial_cmp(ax, ax), .eq);
+    try testing.expectEqual(opt(Order.lt), PartialOrd.partial_cmp(ax, bx));
+    try testing.expectEqual(opt(Order.eq), PartialOrd.partial_cmp(ax, ax));
 
     // compares complex type
     const C = struct {
@@ -239,7 +246,7 @@ test "PartialOrd" {
             return std.math.order(self.x, other.x);
         }
     };
-    try testing.expectEqual(C.new(5).partial_cmp(&C.new(6)), .lt);
-    try testing.expectEqual(C.new(6).partial_cmp(&C.new(6)), .eq);
-    try testing.expectEqual(C.new(6).partial_cmp(&C.new(5)), .gt);
+    try testing.expectEqual(opt(Order.lt), C.new(5).partial_cmp(&C.new(6)));
+    try testing.expectEqual(opt(Order.eq), C.new(6).partial_cmp(&C.new(6)));
+    try testing.expectEqual(opt(Order.gt), C.new(6).partial_cmp(&C.new(5)));
 }

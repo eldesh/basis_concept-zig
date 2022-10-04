@@ -195,19 +195,20 @@ comptime {
 }
 
 test "Ord" {
+    const Order = std.math.Order;
     // compares primitive type
-    try testing.expectEqual(Ord.cmp(null, null), .eq);
+    try testing.expectEqual(Order.eq, Ord.cmp(null, null));
 
     const five: u32 = 5;
     const six: u32 = 6;
-    try testing.expectEqual(Ord.cmp(five, six), .lt);
-    try testing.expectEqual(Ord.cmp(&five, &six), .lt);
+    try testing.expectEqual(Order.lt, Ord.cmp(five, six));
+    try testing.expectEqual(Order.lt, Ord.cmp(&five, &six));
 
     // compares sequence type
     const ax = [3]u32{ 0, 1, 2 };
     const bx = [3]u32{ 0, 1, 3 };
-    try testing.expectEqual(Ord.cmp(ax, bx), .lt);
-    try testing.expectEqual(Ord.cmp(ax, ax), .eq);
+    try testing.expectEqual(Order.lt, Ord.cmp(ax, bx));
+    try testing.expectEqual(Order.eq, Ord.cmp(ax, ax));
 
     // compares complex type
     const C = struct {
@@ -219,7 +220,7 @@ test "Ord" {
             return std.math.order(self.x, other.x);
         }
     };
-    try testing.expectEqual(C.new(5).cmp(&C.new(6)), .lt);
-    try testing.expectEqual(C.new(6).cmp(&C.new(6)), .eq);
-    try testing.expectEqual(C.new(6).cmp(&C.new(5)), .gt);
+    try testing.expectEqual(Order.lt, C.new(5).cmp(&C.new(6)));
+    try testing.expectEqual(Order.eq, C.new(6).cmp(&C.new(6)));
+    try testing.expectEqual(Order.gt, C.new(6).cmp(&C.new(5)));
 }
