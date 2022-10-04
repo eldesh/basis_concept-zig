@@ -500,6 +500,19 @@ test "Eq" {
         try testing.expect(Eq.eq(&arr11, &arr22));
         try testing.expect(!Eq.ne(&arr11, &arr22));
     }
+    {
+        const S = struct {
+            val_int: u32,
+            val_opt: ?u8,
+            val_eit: error{MyError}![5]u8,
+        };
+        const s1: S = .{ .val_int = 42, .val_opt = 128, .val_eit = "hello".* };
+        const s2: S = .{ .val_int = 42, .val_opt = 128, .val_eit = error.MyError };
+        try testing.expect(Eq.eq(&s1, &s1));
+        try testing.expect(!Eq.ne(&s1, &s1));
+        try testing.expect(!Eq.eq(&s1, &s2));
+        try testing.expect(Eq.ne(&s1, &s2));
+    }
 }
 
 /// Derive `eq` and `ne` of `Eq` for the type `T`

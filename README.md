@@ -19,6 +19,26 @@ Further, some associated polymorphic functions are able to be implemented to eac
 
 ## Examples
 
+### Equivalence of generic data type
+
+To compare equivalence of data of various types:
+
+```
+/// A type constructed from various `isEq` types
+const S = struct {
+	val_int: u32,
+	val_opt: ?u8,
+	val_eit: error{MyError}![5]u8,
+};
+
+const s1: S = ...;
+const s2: S = ...;
+if (Eq.eq(&s1, &s2)) {
+    ...
+}
+```
+
+
 ### Check for cloneability
 
 When you want to implement `clone` on a container type only for types that are clonable.
