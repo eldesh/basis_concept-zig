@@ -16,36 +16,34 @@ const have_fun = meta.have_fun;
 /// - `T` is `isTrivialEq` or
 /// - `T` is an Array, an Optional, a Vector or an ErrorUnion type
 /// - `T` is a struct or tagged-union type and all fields are `PartialEq` or
-/// - `T` has an `eq` method
 /// - `T` has an `eq` and a `ne` method
 fn implPartialEq(comptime T: type) bool {
     comptime {
-        if (trivial_eq.isTrivialEq(T))
-            return true;
-        if (trait.is(.Array)(T))
-            return implPartialEq(std.meta.Child(T));
-        if (trait.is(.Optional)(T))
-            return implPartialEq(std.meta.Child(T));
-        if (trait.is(.Vector)(T) and trivial_eq.isTrivialEq(std.meta.Child(T)))
-            return implPartialEq(std.meta.Child(T));
-        if (trait.is(.ErrorUnion)(T) and implPartialEq(@typeInfo(T).ErrorUnion.payload))
-            return true;
-        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
-            if (have_fun(T, "eq")) |eq| {
-                const sig = fn (*const T, *const T) bool;
-                if (have_fun(T, "ne")) |ne|
-                    return eq == sig and ne == sig;
-                return eq == sig;
-            }
-            if (trait.is(.Union)(T)) {
-                if (meta.tag_of(T) catch null) |tag| { // get tag of Union
-                    if (!implPartialEq(tag))
-                        return false;
-                } else return false;
-            }
-            return meta.all_field_types(T, implPartialEq);
-        }
-        return false;
+        return switch (@typeInfo(T)) {
+            .Int, .Float, .ComptimeInt, .ComptimeFloat, .Void, .Bool, .Null, .EnumLiteral, .ErrorSet => true,
+            .Enum => |Enum| return implPartialEq(Enum.tag_type),
+            .Array, .Optional => implPartialEq(std.meta.Child(T)),
+            .Vector => trivial_eq.isTrivialEq(std.meta.Child(T)) and implPartialEq(std.meta.Child(T)),
+            .ErrorUnion => |ErrorUnion| implPartialEq(ErrorUnion.payload),
+            .Struct, .Union => {
+                if (have_fun(T, "eq")) |eq| {
+                    const sig = fn (*const T, *const T) bool;
+                    return if (have_fun(T, "ne")) |ne|
+                        eq == sig and ne == sig
+                    else
+                        false;
+                }
+                if (have_fun(T, "ne")) |_| return false;
+                if (trait.is(.Union)(T)) {
+                    var tag_is =
+                        if (meta.tag_of(T) catch null) |tag| implPartialEq(tag) else false;
+                    return tag_is and meta.all_field_types(T, implPartialEq);
+                } else {
+                    return meta.all_field_types(T, implPartialEq);
+                }
+            },
+            else => false,
+        };
     }
 }
 
@@ -488,7 +486,6 @@ test "PartialEq" {
 /// ```
 ///
 pub fn DerivePartialEq(comptime T: type) type {
-    comptime assert(isPartialEq(T));
     comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
     comptime {
         // check pre-conditions of `T`
@@ -518,9 +515,9 @@ pub fn DerivePartialEq(comptime T: type) type {
                     if (@field(tag, field.name) == self_tag)
                         return PartialEq.eq(&@field(self, field.name), &@field(other, field.name));
                 }
-                return false;
+                return true;
             }
-            @compileError("Cannot Derive PartialEq for type " ++ @typeName(T));
+            @compileError("Cannot Derive PartialEq.eq for type " ++ @typeName(T));
         }
 
         pub fn ne(self: *const T, other: *const T) bool {
@@ -533,7 +530,7 @@ test "DerivePartialEq" {
     {
         const T = union(enum) {
             val: u32,
-            // deriving `eq`
+            // deriving `eq` and `ne`
             pub usingnamespace DerivePartialEq(@This());
         };
         const x: T = T{ .val = 5 };
@@ -573,6 +570,8 @@ test "DerivePartialEq" {
             C,
             pub usingnamespace DerivePartialEq(@This());
         };
+        try testing.expect(PartialEq.eq(E.A, E.A));
+        try testing.expect(PartialEq.ne(E.A, E.B));
         // complex type
         const T = struct {
             val: ?(error{Err}![2]E),
