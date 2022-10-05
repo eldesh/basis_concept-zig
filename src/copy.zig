@@ -11,33 +11,17 @@ const is_or_ptrto = meta.is_or_ptrto;
 /// Values of that types are able to be duplicated with just copying the binary sequence.
 fn implCopy(comptime T: type) bool {
     comptime {
-        if (trait.is(.Void)(T))
-            return true;
-        if (trait.is(.Bool)(T) or trait.is(.Null)(T))
-            return true;
-        if (trait.isNumber(T))
-            return true;
-        if (trait.is(.Vector)(T) or trait.is(.Array)(T) or trait.is(.Optional)(T))
-            return implCopy(std.meta.Child(T));
-        if (trait.is(.Fn)(T))
-            return true;
-        if (trait.is(.Enum)(T))
-            return implCopy(@typeInfo(T).Enum.tag_type);
-        if (trait.is(.EnumLiteral)(T))
-            return true;
-        if (trait.is(.ErrorSet)(T))
-            return true;
-        if (trait.is(.ErrorUnion)(T))
-            return implCopy(@typeInfo(T).ErrorUnion.error_set) and implCopy(@typeInfo(T).ErrorUnion.payload);
-        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
-            if (meta.tag_of(T) catch null) |tag| {
-                if (!implCopy(tag))
-                    return false;
-            }
-            // all type of fields are copyable
-            return meta.all_field_types(T, implCopy);
-        }
-        return false;
+        return switch (@typeInfo(T)) {
+            .Void, .Bool, .Null, .Int, .ComptimeInt, .Float, .ComptimeFloat, .Fn, .EnumLiteral, .ErrorSet => true,
+            .Vector, .Array, .Optional => implCopy(std.meta.Child(T)),
+            .Enum => |Enum| implCopy(Enum.tag_type),
+            .ErrorUnion => |ErrorUnion| implCopy(ErrorUnion.error_set) and implCopy(ErrorUnion.payload),
+            .Struct, .Union => block: {
+                const tagCopy = if (meta.tag_of(T) catch null) |tag| implCopy(tag) else true;
+                break :block tagCopy and meta.all_field_types(T, implCopy);
+            },
+            else => false,
+        };
     }
 }
 
