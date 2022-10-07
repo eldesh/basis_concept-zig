@@ -2,13 +2,12 @@ const std = @import("std");
 
 const meta = @import("./meta.zig");
 const trivial_eq = @import("./trivial_eq.zig");
-const partial_eq = @import("./partial_eq.zig");
 
 const trait = std.meta.trait;
 const testing = std.testing;
 
 const assert = std.debug.assert;
-const have_fun = meta.have_fun;
+const have_fun_sig = meta.have_fun_sig;
 
 /// Checks if type `T` satisfies the concept `Eq`.
 ///
@@ -17,40 +16,31 @@ const have_fun = meta.have_fun;
 /// - `T` is `isTrivialEq` and is not floating point number or
 /// - `T` is an Array, an Optional, a Vector or an ErrorUnion type
 /// - `T` is a struct or a tagged-union type and all fields are `Eq` or
-/// - `T` has an `eq` method
 /// - `T` has an `eq` and a `ne` method
 fn implEq(comptime T: type) bool {
     comptime {
-        if (trait.is(.Float)(T))
-            return false;
-        if (trait.is(.ComptimeFloat)(T))
-            return false;
-        if (trivial_eq.isTrivialEq(T))
-            return true;
-        if (trait.is(.Array)(T))
-            return implEq(std.meta.Child(T));
-        if (trait.is(.Optional)(T))
-            return implEq(std.meta.Child(T));
-        if (trait.is(.Vector)(T) and trivial_eq.isTrivialEq(std.meta.Child(T)))
-            return implEq(std.meta.Child(T));
-        if (trait.is(.ErrorUnion)(T) and implEq(@typeInfo(T).ErrorUnion.payload))
-            return true;
-        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
-            if (have_fun(T, "eq")) |eq| {
+        return switch (@typeInfo(T)) {
+            .Int, .ComptimeInt, .Void, .Bool, .Null, .EnumLiteral, .ErrorSet => true,
+            .Enum => |Enum| implEq(Enum.tag_type),
+            .Array, .Optional => implEq(std.meta.Child(T)),
+            .Vector => trivial_eq.isTrivialEq(std.meta.Child(T)) and implEq(std.meta.Child(T)),
+            .ErrorUnion => |ErrorUnion| implEq(ErrorUnion.payload),
+            .Struct, .Union => {
                 const sig = fn (*const T, *const T) bool;
-                if (have_fun(T, "ne")) |ne|
-                    return eq == sig and ne == sig;
-                return eq == sig;
-            }
-            if (trait.is(.Union)(T)) {
-                if (meta.tag_of(T) catch null) |tag| { // get tag of Union
-                    if (!implEq(tag))
-                        return false;
-                } else return false;
-            }
-            return meta.all_field_types(T, implEq);
-        }
-        return false;
+                // only one of 'eq' and 'ne' is implemented
+                if (have_fun_sig(T, "eq", sig) != have_fun_sig(T, "ne", sig))
+                    return false;
+                // both 'eq' and 'ne' are implemented
+                if (have_fun_sig(T, "eq", sig) and have_fun_sig(T, "ne", sig))
+                    return true;
+                if (trait.is(.Union)(T)) {
+                    if (meta.tag_of(T) catch null) |tag|
+                        return implEq(tag);
+                }
+                return meta.all_field_types(T, implEq);
+            },
+            else => false,
+        };
     }
 }
 
@@ -155,6 +145,9 @@ test "isEq" {
         // impl `eq` manually
         pub fn eq(self: *const @This(), other: *const @This()) bool {
             return self.val == other.val;
+        }
+        pub fn ne(self: *const @This(), other: *const @This()) bool {
+            return !eq(self, other);
         }
     };
     try testing.expect(!isEq([1]*const T));
@@ -300,7 +293,7 @@ pub const Eq = struct {
         if (comptime trait.is(.ErrorUnion)(E))
             return eq_error_union(T, x, y);
 
-        if (comptime have_fun(E, "eq")) |_|
+        if (comptime meta.have_fun(E, "eq")) |_|
             return x.eq(y);
 
         if (comptime trait.is(.Struct)(E))
@@ -333,10 +326,10 @@ pub const Eq = struct {
         if (comptime trait.is(.ErrorUnion)(E))
             return ne_error_union(T, x, y);
 
-        if (comptime have_fun(E, "ne")) |_|
+        if (comptime meta.have_fun(E, "ne")) |_|
             return x.ne(y);
 
-        if (comptime have_fun(E, "eq")) |_|
+        if (comptime meta.have_fun(E, "eq")) |_|
             return !x.eq(y);
 
         if (comptime trait.is(.Struct)(E))
@@ -458,6 +451,9 @@ test "Eq" {
             pub fn eq(self: *const @This(), other: *const @This()) bool {
                 return self.val == other.val;
             }
+            pub fn ne(self: *const @This(), other: *const @This()) bool {
+                return !eq(self, other);
+            }
         };
         const x = T{ .val = 5 };
         const y = T{ .val = 5 };
@@ -548,7 +544,6 @@ test "Eq" {
 /// ```
 ///
 pub fn DeriveEq(comptime T: type) type {
-    comptime assert(isEq(T));
     comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
     comptime {
         // check pre-conditions of `T`

@@ -21,7 +21,7 @@ fn implPartialEq(comptime T: type) bool {
     comptime {
         return switch (@typeInfo(T)) {
             .Int, .Float, .ComptimeInt, .ComptimeFloat, .Void, .Bool, .Null, .EnumLiteral, .ErrorSet => true,
-            .Enum => |Enum| return implPartialEq(Enum.tag_type),
+            .Enum => |Enum| implPartialEq(Enum.tag_type),
             .Array, .Optional => implPartialEq(std.meta.Child(T)),
             .Vector => trivial_eq.isTrivialEq(std.meta.Child(T)) and implPartialEq(std.meta.Child(T)),
             .ErrorUnion => |ErrorUnion| implPartialEq(ErrorUnion.payload),
@@ -33,14 +33,11 @@ fn implPartialEq(comptime T: type) bool {
                 // both 'eq' and 'ne' are implemented
                 if (have_fun_sig(T, "eq", sig) and have_fun_sig(T, "ne", sig))
                     return true;
-
                 if (trait.is(.Union)(T)) {
-                    var tag_is =
-                        if (meta.tag_of(T) catch null) |tag| implPartialEq(tag) else false;
-                    return tag_is and meta.all_field_types(T, implPartialEq);
-                } else {
-                    return meta.all_field_types(T, implPartialEq);
+                    if (meta.tag_of(T) catch null) |tag|
+                        return implPartialEq(tag);
                 }
+                return meta.all_field_types(T, implPartialEq);
             },
             else => false,
         };
