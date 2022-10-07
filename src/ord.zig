@@ -10,36 +10,23 @@ const assert = std.debug.assert;
 
 fn implOrd(comptime T: type) bool {
     comptime {
-        if (trait.is(.Void)(T))
-            return true;
-        if (trait.is(.Bool)(T))
-            return true;
-        if (trait.is(.Null)(T))
-            return true;
-        if (trait.is(.Array)(T))
-            return implOrd(std.meta.Child(T));
-        if (trait.is(.Optional)(T))
-            return implOrd(std.meta.Child(T));
-        if (trait.is(.Enum)(T))
-            return implOrd(@typeInfo(T).Enum.tag_type);
-        if (trait.is(.EnumLiteral)(T))
-            return true;
-        if (trait.is(.ErrorSet)(T))
-            return true;
-        if (trait.is(.ErrorUnion)(T))
-            return implOrd(@typeInfo(T).ErrorUnion.error_set) and implOrd(@typeInfo(T).ErrorUnion.payload);
-        if (trait.isIntegral(T))
-            return true;
-        if (meta.have_fun(T, "cmp")) |ty|
-            return ty == fn (*const T, *const T) std.math.Order;
-        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
-            if (meta.tag_of(T) catch null) |tag| {
-                if (!implOrd(tag))
-                    return false;
-            }
-            return meta.all_field_types(T, implOrd);
-        }
-        return false;
+        return switch (@typeInfo(T)) {
+            .Void, .Bool, .Null, .EnumLiteral, .ErrorSet, .Int, .ComptimeInt => true,
+            .Float, .ComptimeFloat => false,
+            .Array, .Optional => implOrd(std.meta.Child(T)),
+            .Enum => |Enum| implOrd(Enum.tag_type),
+            .ErrorUnion => |ErrorUnion| implOrd(ErrorUnion.error_set) and implOrd(ErrorUnion.payload),
+            .Struct, .Union => {
+                if (meta.have_fun(T, "cmp")) |cmp|
+                    return cmp == fn (*const T, *const T) std.math.Order;
+                if (meta.tag_of(T) catch null) |tag| {
+                    if (!implOrd(tag))
+                        return false;
+                }
+                return meta.all_field_types(T, implOrd);
+            },
+            else => false,
+        };
     }
 }
 

@@ -9,37 +9,23 @@ const assert = std.debug.assert;
 
 fn implPartialOrd(comptime T: type) bool {
     comptime {
-        if (trait.is(.Void)(T))
-            return true;
-        if (trait.is(.Bool)(T))
-            return true;
-        if (trait.is(.Null)(T))
-            return true;
-        if (trait.is(.Array)(T))
-            return implPartialOrd(std.meta.Child(T));
-        if (trait.is(.Optional)(T))
-            return implPartialOrd(std.meta.Child(T));
-        if (trait.is(.Enum)(T))
-            return implPartialOrd(@typeInfo(T).Enum.tag_type);
-        if (trait.is(.EnumLiteral)(T))
-            return true;
-        if (trait.is(.ErrorSet)(T))
-            return true;
-        if (trait.is(.ErrorUnion)(T))
-            return implPartialOrd(@typeInfo(T).ErrorUnion.error_set) and implPartialOrd(@typeInfo(T).ErrorUnion.payload);
-        if (trait.isNumber(T))
-            return true;
-        if (meta.have_fun(T, "partial_cmp")) |ty|
-            return ty == fn (*const T, *const T) ?std.math.Order;
-        if (trait.is(.Struct)(T) or trait.is(.Union)(T)) {
-            if (meta.tag_of(T) catch null) |tag| {
-                if (!implPartialOrd(tag))
-                    return false;
-            }
-            // all type of fields are comparable
-            return meta.all_field_types(T, implPartialOrd);
-        }
-        return false;
+        return switch (@typeInfo(T)) {
+            .Void, .Bool, .Null, .EnumLiteral, .ErrorSet, .Int, .ComptimeInt, .Float, .ComptimeFloat => true,
+            .Array, .Optional => implPartialOrd(std.meta.Child(T)),
+            .Enum => |Enum| implPartialOrd(Enum.tag_type),
+            .ErrorUnion => |ErrorUnion| implPartialOrd(ErrorUnion.error_set) and implPartialOrd(ErrorUnion.payload),
+            .Struct, .Union => {
+                if (meta.have_fun(T, "partial_cmp")) |partial_cmp|
+                    return partial_cmp == fn (*const T, *const T) ?std.math.Order;
+                if (meta.tag_of(T) catch null) |tag| {
+                    if (!implPartialOrd(tag))
+                        return false;
+                }
+                // all type of fields are comparable
+                return meta.all_field_types(T, implPartialOrd);
+            },
+            else => false,
+        };
     }
 }
 
