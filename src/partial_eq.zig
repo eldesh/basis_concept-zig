@@ -479,12 +479,15 @@ test "PartialEq" {
 ///       return false;
 ///     return true;
 ///   }
+///   pub fn ne(self: *const @This(), other: *const @This()) bool {
+///     return !self.eq(other);
+///   }
 /// }
 /// ```
 ///
 pub fn DerivePartialEq(comptime T: type) type {
-    comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
     comptime {
+        assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
         // check pre-conditions of `T`
         for (std.meta.fields(T)) |field| {
             if (!isPartialEq(field.field_type))
@@ -492,7 +495,17 @@ pub fn DerivePartialEq(comptime T: type) type {
             if (trait.isSingleItemPtr(field.field_type))
                 @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
         }
+        return struct {
+            pub usingnamespace if (meta.have_fun(T, "eq")) |_|
+                struct {}
+            else
+                derive_partial_eq(T);
+            pub usingnamespace derive_partial_ne(T);
+        };
     }
+}
+
+fn derive_partial_eq(comptime T: type) type {
     return struct {
         pub fn eq(self: *const T, other: *const T) bool {
             if (comptime trait.is(.Struct)(T)) {
@@ -516,9 +529,14 @@ pub fn DerivePartialEq(comptime T: type) type {
             }
             @compileError("Cannot Derive PartialEq.eq for type " ++ @typeName(T));
         }
+    };
+}
 
+// Derive a 'ne' function that uses `eq` for consistency.
+fn derive_partial_ne(comptime T: type) type {
+    return struct {
         pub fn ne(self: *const T, other: *const T) bool {
-            return !eq(self, other);
+            return !self.eq(other);
         }
     };
 }
@@ -533,6 +551,22 @@ test "DerivePartialEq" {
         const x: T = T{ .val = 5 };
         const y: T = T{ .val = 5 };
         try testing.expect(PartialEq.eq(x, y));
+        try testing.expect(!PartialEq.ne(x, y));
+    }
+    {
+        const T = union(enum) {
+            val: u32,
+            pub fn eq(self: *const @This(), other: *const @This()) bool {
+                return self.val / 2 == other.val / 2;
+            }
+            // deriving `ne`
+            pub usingnamespace DerivePartialEq(@This());
+        };
+        const x: T = T{ .val = 4 };
+        const y: T = T{ .val = 5 };
+        // 4/2 = 2 = 5/2
+        try testing.expect(PartialEq.eq(x, y));
+        // !eq(x, y)
         try testing.expect(!PartialEq.ne(x, y));
     }
     {
