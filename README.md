@@ -26,9 +26,9 @@ To compare equivalence of data of various types:
 ```
 /// A type constructed from various `isEq` types
 const S = struct {
-	val_int: u32,
-	val_opt: ?u8,
-	val_eit: error{MyError}![5]u8,
+  val_int: u32,
+  val_opt: ?u8,
+  val_eit: error{MyError}![5]u8,
 };
 
 const s1: S = ...;
@@ -49,15 +49,14 @@ pub fn Container(comptime T: type) type {
     pub const Self: type = @This();
     pub const CloneError: type = std.mem.Allocator.Error;
     ..
-    pub usingnamespace if isClonable(T) {
-      return struct {
+    pub usingnamespace if (isClonable(T))
+      struct {
         pub fn clone(self: *const Self) CloneError!Self {
           .. T.clone() ..
         }
-      };
-    } else {
-      return struct {}; // empty
-    };
+      }
+    else
+      struct {}; // empty
   };
 }
 
