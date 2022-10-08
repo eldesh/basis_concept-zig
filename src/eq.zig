@@ -329,9 +329,6 @@ pub const Eq = struct {
         if (comptime meta.have_fun(E, "ne")) |_|
             return x.ne(y);
 
-        if (comptime meta.have_fun(E, "eq")) |_|
-            return !x.eq(y);
-
         if (comptime trait.is(.Struct)(E))
             return ne_struct(T, x, y);
 
