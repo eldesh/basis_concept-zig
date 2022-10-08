@@ -540,12 +540,15 @@ test "Eq" {
 ///       return false;
 ///     return true;
 ///   }
+///   pub fn ne(self: *const @This(), other: *const @This()) bool {
+///     return !self.eq(other);
+///   }
 /// }
 /// ```
 ///
 pub fn DeriveEq(comptime T: type) type {
-    comptime assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
     comptime {
+        assert(trait.is(.Struct)(T) or trait.is(.Union)(T));
         // check pre-conditions of `T`
         for (std.meta.fields(T)) |field| {
             if (!isEq(field.field_type))
@@ -553,7 +556,17 @@ pub fn DeriveEq(comptime T: type) type {
             if (trait.isSingleItemPtr(field.field_type))
                 @compileError("Cannot Derive Eq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
         }
+        return struct {
+            pub usingnamespace if (meta.have_fun(T, "eq")) |_|
+                struct {}
+            else
+                derive_eq(T);
+            pub usingnamespace derive_ne(T);
+        };
     }
+}
+
+fn derive_eq(comptime T: type) type {
     return struct {
         pub fn eq(self: *const T, other: *const T) bool {
             if (comptime trait.is(.Struct)(T)) {
@@ -573,13 +586,17 @@ pub fn DeriveEq(comptime T: type) type {
                     if (@field(tag, field.name) == self_tag)
                         return Eq.eq(&@field(self, field.name), &@field(other, field.name));
                 }
-                return false;
+                return true;
             }
-            @compileError("Cannot Derive Eq for type " ++ @typeName(T));
+            @compileError("Cannot Derive Eq.eq for type " ++ @typeName(T));
         }
+    };
+}
 
+fn derive_ne(comptime T: type) type {
+    return struct {
         pub fn ne(self: *const T, other: *const T) bool {
-            return !eq(self, other);
+            return !self.eq(other);
         }
     };
 }
@@ -592,6 +609,20 @@ test "DeriveEq" {
             pub usingnamespace DeriveEq(@This());
         };
         const x: T = T{ .val = 5 };
+        const y: T = T{ .val = 5 };
+        try testing.expect(Eq.eq(x, y));
+        try testing.expect(!Eq.ne(x, y));
+    }
+    {
+        const T = union(enum) {
+            val: u32,
+            pub fn eq(self: *const @This(), other: *const @This()) bool {
+                return self.val / 2 == other.val / 2;
+            }
+            // deriving `eq`
+            pub usingnamespace DeriveEq(@This());
+        };
+        const x: T = T{ .val = 4 };
         const y: T = T{ .val = 5 };
         try testing.expect(Eq.eq(x, y));
         try testing.expect(!Eq.ne(x, y));
