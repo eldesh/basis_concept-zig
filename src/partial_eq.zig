@@ -7,7 +7,7 @@ const trait = std.meta.trait;
 const testing = std.testing;
 
 const assert = std.debug.assert;
-const have_fun = meta.have_fun;
+const have_fun_sig = meta.have_fun_sig;
 
 /// Checks if type `T` satisfies the concept `PartialEq`.
 ///
@@ -26,14 +26,14 @@ fn implPartialEq(comptime T: type) bool {
             .Vector => trivial_eq.isTrivialEq(std.meta.Child(T)) and implPartialEq(std.meta.Child(T)),
             .ErrorUnion => |ErrorUnion| implPartialEq(ErrorUnion.payload),
             .Struct, .Union => {
-                if (have_fun(T, "eq")) |eq| {
-                    const sig = fn (*const T, *const T) bool;
-                    return if (have_fun(T, "ne")) |ne|
-                        eq == sig and ne == sig
-                    else
-                        false;
-                }
-                if (have_fun(T, "ne")) |_| return false;
+                const sig = fn (*const T, *const T) bool;
+                // only one of 'eq' and 'ne' is implemented
+                if (have_fun_sig(T, "eq", sig) != have_fun_sig(T, "ne", sig))
+                    return false;
+                // both 'eq' and 'ne' are implemented
+                if (have_fun_sig(T, "eq", sig) and have_fun_sig(T, "ne", sig))
+                    return true;
+
                 if (trait.is(.Union)(T)) {
                     var tag_is =
                         if (meta.tag_of(T) catch null) |tag| implPartialEq(tag) else false;
@@ -299,7 +299,7 @@ pub const PartialEq = struct {
         if (comptime trait.is(.ErrorUnion)(E))
             return eq_error_union(T, x, y);
 
-        if (comptime have_fun(E, "eq")) |_|
+        if (comptime meta.have_fun(E, "eq")) |_|
             return x.eq(y);
 
         if (comptime trait.is(.Struct)(E))
@@ -332,10 +332,10 @@ pub const PartialEq = struct {
         if (comptime trait.is(.ErrorUnion)(E))
             return ne_error_union(T, x, y);
 
-        if (comptime have_fun(E, "ne")) |_|
+        if (comptime meta.have_fun(E, "ne")) |_|
             return x.ne(y);
 
-        if (comptime have_fun(E, "eq")) |_|
+        if (comptime meta.have_fun(E, "eq")) |_|
             return !x.eq(y);
 
         if (comptime trait.is(.Struct)(E))
