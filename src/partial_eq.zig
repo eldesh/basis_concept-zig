@@ -253,11 +253,11 @@ pub const PartialEq = struct {
 
     fn eq_union(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.Union)(T));
-        const tag = comptime meta.tag_of(T) catch unreachable;
-        if (std.meta.activeTag(x) != std.meta.activeTag(y))
+        const tag = comptime (meta.tag_of(std.meta.Child(T)) catch unreachable).?;
+        if (std.meta.activeTag(x.*) != std.meta.activeTag(y.*))
             return false;
         inline for (std.meta.fields(std.meta.Child(T))) |field| {
-            if (@field(tag, field.name) == std.meta.activeTag(x))
+            if (@field(tag, field.name) == std.meta.activeTag(x.*))
                 return eq_impl(&@field(x, field.name), &@field(y, field.name));
         }
         return true;
@@ -265,11 +265,11 @@ pub const PartialEq = struct {
 
     fn ne_union(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.Union)(T));
-        const tag = comptime meta.tag_of(T) catch unreachable;
-        if (std.meta.activeTag(x) != std.meta.activeTag(y))
+        const tag = comptime (meta.tag_of(std.meta.Child(T)) catch unreachable).?;
+        if (std.meta.activeTag(x.*) != std.meta.activeTag(y.*))
             return true;
         inline for (std.meta.fields(std.meta.Child(T))) |field| {
-            if (@field(tag, field.name) == std.meta.activeTag(x))
+            if (@field(tag, field.name) == std.meta.activeTag(x.*))
                 return ne_impl(&@field(x, field.name), &@field(y, field.name));
         }
         return false;
@@ -417,6 +417,30 @@ test "PartialEq" {
         const vec2 = std.meta.Vector(4, u32){ 0, 1, 2, 4 };
         try testing.expect(PartialEq.eq(&vec1, &vec1));
         try testing.expect(!PartialEq.eq(&vec1, &vec2));
+    }
+    {
+        const S = union(enum) {
+            val1: u32, // same type to typeof(val2)
+            val2: u32,
+        };
+        const s1 = S{ .val1 = 42 };
+        const s2 = S{ .val1 = 314 };
+        try testing.expect(PartialEq.eq(&s1, &s1));
+        try testing.expect(!PartialEq.ne(&s1, &s1));
+        try testing.expect(!PartialEq.eq(&s1, &s2));
+        try testing.expect(PartialEq.ne(&s1, &s2));
+    }
+    {
+        const S = union(enum) {
+            val1: u32,
+            val2: [3]u8,
+        };
+        const s1 = S{ .val1 = 42 };
+        const s2 = S{ .val2 = [_]u8{ 1, 2, 3 } };
+        try testing.expect(PartialEq.eq(&s1, &s1));
+        try testing.expect(!PartialEq.ne(&s1, &s1));
+        try testing.expect(!PartialEq.eq(&s1, &s2));
+        try testing.expect(PartialEq.ne(&s1, &s2));
     }
     {
         const T = struct {
