@@ -51,17 +51,3 @@ comptime {
 pub fn isCopyable(comptime T: type) bool {
     comptime return is_or_ptrto(implCopy)(T);
 }
-
-test "Copy" {
-    const x: u32 = 42;
-    const y = x;
-    _ = y;
-
-    const mx: ?u32 = 42;
-    const my = mx;
-    _ = my;
-
-    const ax = [3]u32{ 1, 2, 3 };
-    const bx = ax;
-    _ = bx;
-}
