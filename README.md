@@ -120,6 +120,27 @@ zig build doc
 A html documents would be generated under the `./docs` directory.
 
 
+## Provided Concept
+
+- TrivialEq
+  Trivially comparable with `==`.
+
+- Copyable
+  Trivially copyable values with `=`.
+  `Copy` means to duplicate a value that has no resources shared with the original one.
+  In other words, it must not contain a pointer.
+
+- Clonable
+  Duplicable values using `clone` method if exists.
+  Similar to Copyable, `Clonable` means that the value can be duplicated. However, the concept can be satisfied if the `clone` method is implemented even if the value cannot be copied in the trivial way.
+  In other words, if a type is `Copyable`, it is automatically `Clonable` as well.
+
+- PartialEq
+- PartialOrd
+- Eq
+- Ord
+
+
 ## Module Hierarchy
 
 
