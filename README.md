@@ -123,7 +123,9 @@ A html documents would be generated under the `./docs` directory.
 ## Provided Concept
 
 - TrivialEq
-  Trivially comparable with `==`.
+  Concept for types that trivially comparable value with `==`.
+  This concept is defined for checking the type is comparable with `==`.
+  Then any extra method is not provided.
 
 - Copyable
   Trivially copyable values with `=`.
@@ -136,9 +138,37 @@ A html documents would be generated under the `./docs` directory.
   In other words, if a type is `Copyable`, it is automatically `Clonable` as well.
 
 - PartialEq
-- PartialOrd
+  `PartialEq` concept means that a partial equivalence relation is defined for the type.
+  The partiality comes from the fact that the relation does not require reflexivity.
+  That is, the relation must satisfy the following properties. for all x, y and z:
+
+  - `PartialEq.eq(x, y) == PartialEq.eq(y, x)`
+  - `PartialEq.eq(x, y) == PartialEq.eq(y, z) == PartialEq.eq(x, z)`
+
 - Eq
+  `Eq` concept means that a full equivalence relation is defined for the type.
+  Addition to `PartialEq`, this concept requires relations to have reflexivity.
+
+  - `Eq.eq(x, y) == Eq.eq(y, x)`
+  - `Eq.eq(x, y) and Eq.eq(y, z)` implies `Eq.eq(x, z)`
+  - `Eq.eq(x, x)`
+
+  Furthermore, this concept also contains `ne` method, which must be consistent with `eq`.
+
+- PartialOrd
+  `PartialOrd` ceoncept means parial ordering relation.
+  Such relations require the type satisfies properties and have consistensy to `PartialEq`.
+
+  - `PartialOrd.partial_cmp(x, y).?.compare(.eq)` implies `PartialEq.eq(x, y)`
+  - `PartialOrd.partial_cmp(x, y).?.compare(.le)` implies `PartialOrd.partial_cmp(x, y).?.compare(.lt) or PartialEq.eq(x, y)`
+  - `PartialOrd.partial_cmp(x, y).?.compare(.ge)` implies `PartialOrd.partial_cmp(x, y).?.compare(.lt) or PartialEq.eq(x, y)`
+
+
 - Ord
+  Concept for types that forms total order.
+  Implementations must be consistent with `PartialOrd`.
+
+  - `Ord.cmp(x, y) == PartialOrd.partial_cmp(x, y).?`
 
 
 ## Module Hierarchy
