@@ -5,6 +5,7 @@ pub const ord = @import("ord.zig");
 pub const partial_eq = @import("partial_eq.zig");
 pub const trivial_eq = @import("trivial_eq.zig");
 pub const eq = @import("eq.zig");
+pub const destroy = @import("destroy.zig");
 
 pub const isCopyable = copy.isCopyable;
 
