@@ -108,17 +108,68 @@ comptime {
             _ = self;
         }
     }));
+    assert(isDestroy(struct {
+        alloc: Allocator,
+        s1: *struct {
+            s0: [5]u32,
+            s1: bool,
+            s2: u32,
+            s3: ***u32,
+            s4: *[]const u8,
+
+            pub fn destroy(self: *@This()) void {
+                _ = self;
+            }
+        },
+
+        pub fn destroy(self: *@This()) void {
+            _ = self;
+        }
+    }));
 }
 
 pub const Destroy = struct {
+    fn destroy_struct(comptime T: type, value: T, alloc: Allocator) void {
+        comptime assert(trait.is(.Struct)(T));
+        var v = value;
+        if (have_fun(T, "destroy")) |ty| {
+            if (ty == fn (*T) void)
+                return v.destroy();
+            if (ty == fn (*T, Allocator) void)
+                return v.destroy(alloc);
+            unreachable;
+        }
+        inline for (std.meta.fields(T)) |field| {
+            return destroy(@field(v, field.name), alloc);
+        }
+    }
+
+    fn destroy_union(comptime T: type, value: T, alloc: Allocator) void {
+        comptime assert(trait.is(.Union)(T));
+        var v = value;
+        if (have_fun(T, "destroy")) |ty| {
+            if (ty == fn (*T) void)
+                return v.destroy();
+            if (ty == fn (*T, Allocator) void)
+                return v.destroy(alloc);
+            unreachable;
+        }
+        inline for (std.meta.fields(T)) |field| {
+            if (@field(v, field.name) == std.meta.activeTag(v))
+                return destroy(@field(v, field.name));
+        }
+    }
+
     pub fn on(comptime T: type) fn (T, Allocator) void {
         return struct {
             fn impl(value: T, allocator: Allocator) void {
                 comptime assert(isDestroy(T));
                 var v = value;
-                _ = allocator;
-                if (have_fun(T, "destroy")) |_|
-                    v.destroy();
+                switch (@typeInfo(T)) {
+                    .Struct => destroy_struct(T, v, allocator),
+                    .Union => destroy_union(T, v, allocator),
+                    else => {},
+                }
             }
         }.impl;
     }
@@ -165,6 +216,24 @@ test "Destroy" {
             s3: ***u32,
             s4: *[]const u8,
 
+            pub fn new(
+                alloc: Allocator,
+                s0: [5]u32,
+                s1: bool,
+                s2: u32,
+            ) Allocator.Error!@This() {
+                var s3p = try alloc.create(u32);
+                s3p.* = 5;
+                var s3pp = try alloc.create(*u32);
+                s3pp.* = s3p;
+                var s3 = try alloc.create(**u32);
+                s3.* = s3pp;
+                var s4s = try std.fmt.allocPrint(alloc, "{s}", .{"hello"});
+                var s4 = try alloc.create([]const u8);
+                s4.* = s4s;
+                return @This(){ .alloc = alloc, .s0 = s0, .s1 = s1, .s2 = s2, .s3 = s3, .s4 = s4 };
+            }
+
             pub fn destroy(self: *@This()) void {
                 self.alloc.destroy(self.s3.*.*);
                 self.alloc.destroy(self.s3.*);
@@ -173,26 +242,34 @@ test "Destroy" {
                 self.alloc.destroy(self.s4);
             }
         };
-        var s3p = try allocator.create(u32);
-        s3p.* = 5;
-        var s3pp = try allocator.create(*u32);
-        s3pp.* = s3p;
-        var s3 = try allocator.create(**u32);
-        s3.* = s3pp;
-
-        var s4s = try std.fmt.allocPrint(allocator, "{s}", .{"hello"});
-        var s4 = try allocator.create([]const u8);
-        s4.* = s4s;
-
-        var s0: S = .{
-            .alloc = allocator,
-            .s0 = [5]u32{ 0, 1, 2, 3, 4 },
-            .s1 = false,
-            .s2 = 42,
-            .s3 = s3,
-            .s4 = s4,
-        };
+        var s0: S = try S.new(
+            allocator,
+            [5]u32{ 0, 1, 2, 3, 4 },
+            false,
+            42,
+        );
         defer Destroy.destroy(s0, allocator);
+
+        const S2 = struct {
+            alloc: Allocator,
+            s1: *S,
+
+            pub fn new(alloc: Allocator, s1: S) !@This() {
+                var p = try alloc.create(S);
+                p.* = s1;
+                return @This(){ .alloc = alloc, .s1 = p };
+            }
+
+            pub fn destroy(self: *@This()) void {
+                Destroy.destroy(self.s1.*, self.alloc);
+                self.alloc.destroy(self.s1);
+            }
+        };
+        comptime assert(isDestroy(S2));
+
+        var s1: S = try S.new(allocator, [5]u32{ 5, 4, 3, 2, 1 }, true, 128);
+        var s2: S2 = try S2.new(allocator, s1);
+        defer Destroy.destroy(s2, allocator);
     }
     {
         const U = union(enum) {
