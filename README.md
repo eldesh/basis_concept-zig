@@ -156,7 +156,7 @@ A html documents would be generated under the `./docs` directory.
   Furthermore, this concept also contains `ne` method, which must be consistent with `eq`.
 
 - PartialOrd
-  `PartialOrd` ceoncept means parial ordering relation.
+  `PartialOrd` concept means parial ordering relation.
   Such relations require the type satisfies properties and have consistensy to `PartialEq`.
 
   - `PartialOrd.partial_cmp(x, y).?.compare(.eq)` implies `PartialEq.eq(x, y)`
@@ -169,6 +169,10 @@ A html documents would be generated under the `./docs` directory.
   Implementations must be consistent with `PartialOrd`.
 
   - `Ord.cmp(x, y) == PartialOrd.partial_cmp(x, y).?`
+
+- Destroy
+  The `Destroy` concept provides an interface for destroying values.
+  Values of types implementing this concept can be destroyed by `destroy(@This())` or `destroy(@This(), std.mem.Allocator)`.
 
 
 ## Module Hierarchy
@@ -194,12 +198,15 @@ A html documents would be generated under the `./docs` directory.
     - eq
         - isEq
         - Eq
+    - destroy
+        - Destroy
     - prelude
         - Clone
         - PartialEq
         - PartialOrd
         - Ord
         - Eq
+        - Destroy
 
 
 ## Concept Convention
