@@ -53,12 +53,15 @@ fn implDestroy(comptime T: type) bool {
         if (isTrivialDestroy(T))
             return true;
         return switch (@typeInfo(T)) {
-            .Struct, .Union => block: {
-                if (have_fun(T, "destroy")) |destroy_ty| {
-                    break :block (destroy_ty == fn (*T) void or destroy_ty == fn (*T, Allocator) void);
+            .Struct, .Union => {
+                if (have_fun(T, "destroy")) |ty| {
+                    return ty == fn (*T) void or ty == fn (*T, Allocator) void;
                 } else {
-                    const tagDestroy = if (meta.tag_of(T) catch null) |tag| implDestroy(tag) else true;
-                    break :block tagDestroy and meta.all_field_types(T, implDestroy);
+                    const tagDestroy = if (meta.tag_of(T) catch null) |tag|
+                        implDestroy(tag)
+                    else
+                        true;
+                    return tagDestroy and meta.all_field_types(T, implDestroy);
                 }
             },
             else => false,

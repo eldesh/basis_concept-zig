@@ -26,6 +26,8 @@ pub const Eq = eq.Eq;
 
 pub const isTrivialEq = trivial_eq.isTrivialEq;
 
+pub const isDestroy = destroy.isDestroy;
+
 /// Namespace provides basic functions.
 pub const prelude = struct {
     pub const Clone = clone.Clone;
@@ -33,6 +35,7 @@ pub const prelude = struct {
     pub const Ord = ord.Ord;
     pub const PartialEq = partial_eq.PartialEq;
     pub const Eq = eq.Eq;
+    pub const Destroy = destroy.Destroy;
 };
 
 test {
