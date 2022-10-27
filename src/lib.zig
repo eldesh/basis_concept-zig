@@ -5,6 +5,7 @@ pub const ord = @import("ord.zig");
 pub const partial_eq = @import("partial_eq.zig");
 pub const trivial_eq = @import("trivial_eq.zig");
 pub const eq = @import("eq.zig");
+pub const trivial_destroy = @import("trivial_destroy.zig");
 pub const destroy = @import("destroy.zig");
 
 pub const isCopyable = copy.isCopyable;
@@ -24,9 +25,10 @@ pub const PartialEq = partial_eq.PartialEq;
 pub const isEq = eq.isEq;
 pub const Eq = eq.Eq;
 
-pub const isTrivialEq = trivial_eq.isTrivialEq;
-
 pub const isDestroy = destroy.isDestroy;
+
+pub const isTrivialEq = trivial_eq.isTrivialEq;
+pub const isTrivialDestroy = trivial_destroy.isTrivialDestroy;
 
 /// Namespace provides basic functions.
 pub const prelude = struct {

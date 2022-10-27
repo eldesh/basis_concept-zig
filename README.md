@@ -127,6 +127,10 @@ A html documents would be generated under the `./docs` directory.
   This concept is defined for checking the type is comparable with `==`.
   Then any extra method is not provided.
 
+- TrivialDestroy
+  Concept for types that trivially destroyable implicitly.
+  Then any extra method is not provided.
+
 - Copyable
   Trivially copyable values with `=`.
   `Copy` means to duplicate a value that has no resources shared with the original one.
@@ -198,6 +202,8 @@ A html documents would be generated under the `./docs` directory.
     - eq
         - isEq
         - Eq
+    - trivial_destroy
+        - isTrivialDestroy
     - destroy
         - Destroy
     - prelude
