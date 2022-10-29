@@ -38,9 +38,25 @@ comptime {
         s1: bool,
         s2: comptime_int,
     }));
+    assert(isTrivialDestroy(struct { s0: [5]u32, s1: bool, s2: comptime_int, s3: struct {
+        s30: [3]u8,
+        s31: struct {},
+    } }));
     assert(isTrivialDestroy(union {
         u0: [5]u32,
         u1: bool,
         u2: comptime_float,
+    }));
+    assert(isTrivialDestroy(union {
+        u0: [5]u32,
+        u1: bool,
+        u2: comptime_float,
+        u3: trivial,
+
+        const trivial = struct {
+            s0: f64,
+            s1: u32,
+            s2: [2][3][4]u8,
+        };
     }));
 }

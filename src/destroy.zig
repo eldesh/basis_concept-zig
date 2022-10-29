@@ -34,12 +34,24 @@ fn implDestroy(comptime T: type) bool {
 }
 
 pub fn isDestroy(comptime T: type) bool {
-    comptime return implDestroy(T);
+    comptime {
+        return if (trait.isSingleItemPtr(T) or trait.isSlice(T))
+            implDestroy(std.meta.Child(T))
+        else
+            implDestroy(T);
+    }
 }
 
 comptime {
     assert(isDestroy(u32));
-    assert(!isDestroy(*u32));
+    assert(isDestroy(*u32));
+    assert(!isDestroy(**u32));
+    assert(!isDestroy(*const *u32));
+    assert(isDestroy([]u32));
+    assert(isDestroy([]const u32));
+    assert(isDestroy([5]u32));
+    assert(isDestroy([][5]u32));
+    assert(!isDestroy([5][]u32));
     assert(isDestroy(f32));
     assert(isDestroy(?f32));
     assert(isDestroy([5]u8));
@@ -130,10 +142,22 @@ pub const Destroy = struct {
         return struct {
             fn impl(value: T, allocator: Allocator) void {
                 comptime assert(isDestroy(T));
-                var v = value;
                 switch (@typeInfo(T)) {
-                    .Struct => destroy_struct(T, v, allocator),
-                    .Union => destroy_union(T, v, allocator),
+                    .Struct => destroy_struct(T, value, allocator),
+                    .Union => destroy_union(T, value, allocator),
+                    .Pointer => |Ptr| {
+                        switch (Ptr.size) {
+                            .One => {
+                                on(std.meta.Child(T))(value.*, allocator);
+                                allocator.destroy(value);
+                            },
+                            .Slice => {
+                                for (value) |v| on(std.meta.Child(T))(v, allocator);
+                                allocator.free(value);
+                            },
+                            else => unreachable,
+                        }
+                    },
                     else => {},
                 }
             }
@@ -163,6 +187,11 @@ test "Destroy" {
     {
         var v3: [5]u8 = [5]u8{ 0, 1, 2, 3, 4 };
         Destroy.destroy(v3, allocator);
+    }
+    {
+        var v4: *f32 = try allocator.create(f32);
+        v4.* = 3.14;
+        Destroy.destroy(v4, allocator);
     }
     {
         const S = struct {
