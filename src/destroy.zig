@@ -145,18 +145,16 @@ pub const Destroy = struct {
                 switch (@typeInfo(T)) {
                     .Struct => destroy_struct(T, value, allocator),
                     .Union => destroy_union(T, value, allocator),
-                    .Pointer => |Ptr| {
-                        switch (Ptr.size) {
-                            .One => {
-                                on(std.meta.Child(T))(value.*, allocator);
-                                allocator.destroy(value);
-                            },
-                            .Slice => {
-                                for (value) |v| on(std.meta.Child(T))(v, allocator);
-                                allocator.free(value);
-                            },
-                            else => unreachable,
-                        }
+                    .Pointer => |Ptr| switch (Ptr.size) {
+                        .One => {
+                            on(Ptr.child)(value.*, allocator);
+                            allocator.destroy(value);
+                        },
+                        .Slice => {
+                            for (value) |v| on(Ptr.child)(v, allocator);
+                            allocator.free(value);
+                        },
+                        else => unreachable,
                     },
                     else => {},
                 }
