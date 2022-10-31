@@ -55,7 +55,15 @@ comptime {
     assert(isDestroy(f32));
     assert(isDestroy(?f32));
     assert(isDestroy([5]u8));
+    assert(isDestroy([5][3]u8));
+    assert(isDestroy([][5]u8));
+    assert(isDestroy(*[5]u8));
     assert(isDestroy(struct {
+        s0: [5]u32,
+        s1: bool,
+        s2: comptime_int,
+    }));
+    assert(isDestroy([4]struct {
         s0: [5]u32,
         s1: bool,
         s2: comptime_int,
@@ -64,6 +72,13 @@ comptime {
         u0: [5]u32,
         u1: bool,
         u2: comptime_float,
+    }));
+    assert(!isDestroy(struct {
+        s0: [5]u32,
+        s1: bool,
+        s2: u32,
+        s3: ***u32,
+        s4: *[]const u8,
     }));
     assert(isDestroy(struct {
         s0: [5]u32,
@@ -75,6 +90,13 @@ comptime {
         pub fn destroy(self: *@This()) void {
             _ = self;
         }
+    }));
+    assert(!isDestroy(union {
+        u0: [5]u32,
+        u1: bool,
+        u2: f32,
+        u3: ***u32,
+        u4: *[]const u8,
     }));
     assert(isDestroy(union {
         u0: [5]u32,
