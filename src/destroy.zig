@@ -192,6 +192,10 @@ test "Destroy" {
         Destroy.destroy(v4, allocator);
     }
     {
+        var v5: []u8 = try std.fmt.allocPrint(allocator, "destroy test", .{});
+        Destroy.destroy(v5, allocator);
+    }
+    {
         const S = struct {
             s0: [5]u32,
             s1: bool,
