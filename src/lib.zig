@@ -26,6 +26,7 @@ pub const isEq = eq.isEq;
 pub const Eq = eq.Eq;
 
 pub const isDestroy = destroy.isDestroy;
+pub const Destroy = destroy.Destroy;
 
 pub const isTrivialEq = trivial_eq.isTrivialEq;
 pub const isTrivialDestroy = trivial_destroy.isTrivialDestroy;
