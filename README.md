@@ -93,9 +93,10 @@ This library is developped with:
 
 ## Build
 
-To build:
+To build, executing the following commands:
 
 ```sh
+zigmod fetch
 zig build
 ```
 
