@@ -15,7 +15,7 @@ pub fn tag_of(comptime T: type) TypeKindError!?type {
     };
 }
 
-pub fn have_type(comptime T: type, name: []const u8) ?type {
+pub fn have_type(comptime T: type, comptime name: []const u8) ?type {
     comptime {
         if (!trait.isContainer(T))
             return null;
@@ -50,7 +50,7 @@ pub fn have_fun(comptime T: type, name: []const u8) ?type {
     }
 }
 
-pub fn have_fun_sig(comptime T: type, name: []const u8, comptime Sig: type) bool {
+pub fn have_fun_sig(comptime T: type, comptime name: []const u8, comptime Sig: type) bool {
     comptime {
         return have_fun(T, name) == Sig;
     }
