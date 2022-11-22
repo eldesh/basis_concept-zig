@@ -40,7 +40,7 @@ comptime {
     assert(have_type(u32, "cmp") == null);
 }
 
-pub fn have_fun(comptime T: type, name: []const u8) ?type {
+pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
     comptime {
         if (!std.meta.trait.isContainer(T))
             return null;
