@@ -512,9 +512,9 @@ pub fn DerivePartialEq(comptime T: type) type {
         // check pre-conditions of `T`
         for (std.meta.fields(T)) |field| {
             if (!isPartialEq(field.field_type))
-                @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+                @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "::" ++ @typeName(field.field_type) ++ ":" ++ field.name);
             if (trait.isSingleItemPtr(field.field_type))
-                @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "." ++ field.name ++ ":" ++ @typeName(field.field_type));
+                @compileError("Cannot Derive PartialEq for " ++ @typeName(T) ++ "::" ++ @typeName(field.field_type) ++ ":" ++ field.name);
         }
         return struct {
             pub usingnamespace if (meta.have_fun(T, "eq")) |_|
