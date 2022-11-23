@@ -616,19 +616,27 @@ test "DerivePartialEq" {
     }
     {
         // tagged union
-        const E = union(enum) {
+        const E: type = union(enum) {
             A,
             B,
             C,
             pub usingnamespace DerivePartialEq(@This());
         };
+        comptime try testing.expect(isPartialEq(E));
+        const ea: E = E{ .A = void{} };
+        try testing.expect((E{ .A = void{} }).eq(&E{ .A = void{} }));
+        try testing.expect(!ea.ne(&ea));
+        try testing.expect(PartialEq.eq(ea, ea));
         try testing.expect(PartialEq.eq(E.A, E.A));
         try testing.expect(PartialEq.ne(E.A, E.B));
+
         // complex type
         const T = struct {
             val: ?(error{Err}![2]E),
             pub usingnamespace DerivePartialEq(@This());
         };
+        comptime try testing.expect(isPartialEq(?(error{Err}![2]E)));
+        comptime try testing.expect(isPartialEq(T));
         try testing.expect(PartialEq.eq(T{ .val = null }, T{ .val = null }));
         try testing.expect(PartialEq.eq(T{ .val = error.Err }, T{ .val = error.Err }));
         try testing.expect(PartialEq.eq(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .B } }));
