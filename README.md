@@ -87,8 +87,8 @@ map.insert(key2, value2);
 This library is developped with:
 
 - Debian (x86_64) 10.4
-- Zig 0.9.1
-- Zigmod r79
+- Zig 0.9.1 with Zigmod r79
+- Zig 0.10.1 with Zigmod r80
 
 
 ## Build
