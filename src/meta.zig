@@ -8,11 +8,13 @@ pub const TypeKindError = error{
 };
 
 pub fn tag_of(comptime T: type) TypeKindError!?type {
-    return switch (@typeInfo(T)) {
-        .Enum => |info| info.tag_type,
-        .Union => |info| info.tag_type,
-        else => TypeKindError.NotEnumOrUnionError,
-    };
+    comptime {
+        return switch (@typeInfo(T)) {
+            .Enum => |info| info.tag_type,
+            .Union => |info| info.tag_type,
+            else => TypeKindError.NotEnumOrUnionError,
+        };
+    }
 }
 
 pub fn have_type(comptime T: type, comptime name: []const u8) ?type {
@@ -57,10 +59,12 @@ pub fn have_fun_sig(comptime T: type, comptime name: []const u8, comptime Sig: t
 }
 
 pub fn deref_type(comptime T: type) type {
-    if (trait.isSingleItemPtr(T)) {
-        return std.meta.Child(T);
-    } else {
-        return T;
+    comptime {
+        if (trait.isSingleItemPtr(T)) {
+            return std.meta.Child(T);
+        } else {
+            return T;
+        }
     }
 }
 
