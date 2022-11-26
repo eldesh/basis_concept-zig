@@ -25,7 +25,7 @@ fn implEq(comptime T: type) bool {
             .Array, .Optional => implEq(std.meta.Child(T)),
             .Vector => trivial_eq.isTrivialEq(std.meta.Child(T)) and implEq(std.meta.Child(T)),
             .ErrorUnion => |ErrorUnion| implEq(ErrorUnion.payload),
-            .Struct, .Union => {
+            .Struct => |_| {
                 const sig = fn (*const T, *const T) bool;
                 // only one of 'eq' and 'ne' is implemented
                 if (have_fun_sig(T, "eq", sig) != have_fun_sig(T, "ne", sig))
@@ -33,12 +33,21 @@ fn implEq(comptime T: type) bool {
                 // both 'eq' and 'ne' are implemented
                 if (have_fun_sig(T, "eq", sig) and have_fun_sig(T, "ne", sig))
                     return true;
-                if (trait.is(.Union)(T)) {
-                    if (if (meta.tag_of(T) catch null) |tag| !implEq(tag) else true)
-                        return false;
-                }
                 return meta.all_field_types(T, implEq);
             },
+            .Union => |Union| {
+                const sig = fn (*const T, *const T) bool;
+                // only one of 'eq' and 'ne' is implemented
+                if (have_fun_sig(T, "eq", sig) != have_fun_sig(T, "ne", sig))
+                    return false;
+                // both 'eq' and 'ne' are implemented
+                if (have_fun_sig(T, "eq", sig) and have_fun_sig(T, "ne", sig))
+                    return true;
+                if (if (Union.tag_type) |tag| !implEq(tag) else true)
+                    return false;
+                return meta.all_field_types(T, implEq);
+            },
+
             else => false,
         };
     }

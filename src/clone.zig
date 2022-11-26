@@ -16,13 +16,21 @@ fn implClone(comptime T: type) bool {
             .Void, .Bool, .Null, .Int, .ComptimeInt, .Float, .ComptimeFloat, .Fn, .EnumLiteral, .ErrorSet => true,
             .Vector, .Array, .Optional => implClone(std.meta.Child(T)),
             .Enum => |Enum| implClone(Enum.tag_type),
-            .ErrorUnion => |ErrorUnion| implClone(ErrorUnion.error_set) and implClone(ErrorUnion.payload),
-            .Struct, .Union => block: {
-                if (have_fun(T, "clone")) |clone_ty| {
+            .ErrorUnion => |EU| implClone(EU.error_set) and implClone(EU.payload),
+            .Struct => |_| block: {
+                if (meta.have_fun(T, "clone")) |clone_ty| {
                     const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
                     break :block (clone_ty == fn (*const T) Err!T);
                 } else {
-                    const tagClone = if (meta.tag_of(T) catch null) |tag| implClone(tag) else true;
+                    break :block meta.all_field_types(T, implClone);
+                }
+            },
+            .Union => |Union| block: {
+                if (meta.have_fun(T, "clone")) |clone_ty| {
+                    const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
+                    break :block (clone_ty == fn (*const T) Err!T);
+                } else {
+                    const tagClone = if (Union.tag_type) |tag| implClone(tag) else true;
                     break :block tagClone and meta.all_field_types(T, implClone);
                 }
             },
@@ -78,17 +86,21 @@ pub const Clone = struct {
     pub const EmptyError = error{};
 
     pub fn ErrorType(comptime T: type) type {
-        comptime assert(isClonable(T));
-        const Out = deref_type(T);
-        const Err = have_type(Out, "CloneError") orelse EmptyError;
-        return Err;
+        comptime {
+            assert(isClonable(T));
+            const Out = deref_type(T);
+            const Err = have_type(Out, "CloneError") orelse EmptyError;
+            return Err;
+        }
     }
 
     pub fn ResultType(comptime T: type) type {
-        comptime assert(isClonable(T));
-        const Out = deref_type(T);
-        const Err = have_type(Out, "CloneError") orelse EmptyError;
-        return Err!Out;
+        comptime {
+            assert(isClonable(T));
+            const Out = deref_type(T);
+            const Err = have_type(Out, "CloneError") orelse EmptyError;
+            return Err!Out;
+        }
     }
 
     fn clone_impl(value: anytype) ResultType(@TypeOf(value)) {

@@ -25,7 +25,7 @@ fn implPartialEq(comptime T: type) bool {
             .Array, .Optional => implPartialEq(std.meta.Child(T)),
             .Vector => trivial_eq.isTrivialEq(std.meta.Child(T)) and implPartialEq(std.meta.Child(T)),
             .ErrorUnion => |ErrorUnion| implPartialEq(ErrorUnion.payload),
-            .Struct, .Union => {
+            .Struct => |_| {
                 const sig = fn (*const T, *const T) bool;
                 // only one of 'eq' and 'ne' is implemented
                 if (have_fun_sig(T, "eq", sig) != have_fun_sig(T, "ne", sig))
@@ -33,10 +33,18 @@ fn implPartialEq(comptime T: type) bool {
                 // both 'eq' and 'ne' are implemented
                 if (have_fun_sig(T, "eq", sig) and have_fun_sig(T, "ne", sig))
                     return true;
-                if (trait.is(.Union)(T)) {
-                    if (if (meta.tag_of(T) catch null) |tag| !implPartialEq(tag) else true)
-                        return false;
-                }
+                return meta.all_field_types(T, implPartialEq);
+            },
+            .Union => |Union| {
+                const sig = fn (*const T, *const T) bool;
+                // only one of 'eq' and 'ne' is implemented
+                if (have_fun_sig(T, "eq", sig) != have_fun_sig(T, "ne", sig))
+                    return false;
+                // both 'eq' and 'ne' are implemented
+                if (have_fun_sig(T, "eq", sig) and have_fun_sig(T, "ne", sig))
+                    return true;
+                if (if (Union.tag_type) |tag| !implPartialEq(tag) else true)
+                    return false;
                 return meta.all_field_types(T, implPartialEq);
             },
             else => false,
@@ -265,10 +273,12 @@ pub const PartialEq = struct {
 
     fn ne_union(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.Union)(T));
-        const tag = comptime (meta.tag_of(std.meta.Child(T)) catch unreachable).?;
-        if (std.meta.activeTag(x.*) != std.meta.activeTag(y.*))
+        const E = std.meta.Child(T);
+        const tag = comptime (meta.tag_of(E) catch unreachable).?;
+        if (std.meta.activeTag(x.*) != std.meta.activeTag(y.*)) {
             return true;
-        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+        }
+        inline for (std.meta.fields(E)) |field| {
             if (@field(tag, field.name) == std.meta.activeTag(x.*))
                 return ne_impl(&@field(x, field.name), &@field(y, field.name));
         }
@@ -555,11 +565,13 @@ fn derive_partial_eq(comptime T: type) type {
 
 // Derive a 'ne' function that uses `eq` for consistency.
 fn derive_partial_ne(comptime T: type) type {
-    return struct {
-        pub fn ne(self: *const T, other: *const T) bool {
-            return !self.eq(other);
-        }
-    };
+    comptime {
+        return struct {
+            pub fn ne(self: *const T, other: *const T) bool {
+                return !self.eq(other);
+            }
+        };
+    }
 }
 
 test "DerivePartialEq" {
@@ -574,22 +586,7 @@ test "DerivePartialEq" {
         try testing.expect(PartialEq.eq(x, y));
         try testing.expect(!PartialEq.ne(x, y));
     }
-    {
-        const T = union(enum) {
-            val: u32,
-            pub fn eq(self: *const @This(), other: *const @This()) bool {
-                return self.val / 2 == other.val / 2;
-            }
-            // deriving `ne`
-            pub usingnamespace DerivePartialEq(@This());
-        };
-        const x: T = T{ .val = 4 };
-        const y: T = T{ .val = 5 };
-        // 4/2 = 2 = 5/2
-        try testing.expect(PartialEq.eq(x, y));
-        // !eq(x, y)
-        try testing.expect(!PartialEq.ne(x, y));
-    }
+
     {
         // contains pointer
         const T = struct {
@@ -654,5 +651,26 @@ test "DerivePartialEq" {
         try testing.expect(!PartialEq.ne(&T{ .val = [_]E{ .A, .B } }, &T{ .val = [_]E{ .A, .B } }));
         try testing.expect(PartialEq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = [_]E{ .A, .C } }));
         try testing.expect(PartialEq.ne(T{ .val = [_]E{ .A, .B } }, T{ .val = error.Err }));
+    }
+}
+
+test "DerivePartialNe" {
+    {
+        const T: type = union(enum) {
+            val: u32,
+            pub fn eq(self: *const @This(), other: *const @This()) bool {
+                return self.val / 2 == other.val / 2;
+            }
+            // deriving `ne`
+            pub usingnamespace DerivePartialEq(@This());
+        };
+        const x: T = T{ .val = 4 };
+        const y: T = T{ .val = 5 };
+        // 4/2 = 2 = 5/2
+        try testing.expect(PartialEq.eq(x, y));
+        // comptime assert(meta.have_fun(T, "ne") != null);
+        try testing.expect(!x.ne(&y));
+        // !eq(x, y)
+        try testing.expect(!PartialEq.ne(x, y));
     }
 }

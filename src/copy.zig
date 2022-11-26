@@ -13,12 +13,16 @@ fn implCopy(comptime T: type) bool {
     comptime {
         return switch (@typeInfo(T)) {
             .Void, .Bool, .Null, .Int, .ComptimeInt, .Float, .ComptimeFloat, .Fn, .EnumLiteral, .ErrorSet => true,
-            .Vector, .Array, .Optional => implCopy(std.meta.Child(T)),
+            .Vector => |V| implCopy(V.child),
+            .Array => |A| implCopy(A.child),
+            .Optional => |O| implCopy(O.child),
             .Enum => |Enum| implCopy(Enum.tag_type),
-            .ErrorUnion => |ErrorUnion| implCopy(ErrorUnion.error_set) and implCopy(ErrorUnion.payload),
-            .Struct, .Union => block: {
-                const tagCopy = if (meta.tag_of(T) catch null) |tag| implCopy(tag) else true;
-                break :block tagCopy and meta.all_field_types(T, implCopy);
+            .ErrorUnion => |EU| implCopy(EU.error_set) and implCopy(EU.payload),
+            .Struct => |_| block: {
+                break :block meta.all_field_types(T, implCopy);
+            },
+            .Union => |_| block: {
+                break :block meta.all_field_types(T, implCopy);
             },
             else => false,
         };
