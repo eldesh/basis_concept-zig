@@ -17,8 +17,8 @@ fn implClone(comptime T: type) bool {
             .Vector, .Array, .Optional => implClone(std.meta.Child(T)),
             .Enum => |Enum| implClone(Enum.tag_type),
             .ErrorUnion => |EU| implClone(EU.error_set) and implClone(EU.payload),
-            .Struct => |_| block: {
-                if (meta.have_fun(T, "clone")) |clone_ty| {
+            .Struct => |_| return block: {
+                if (have_fun(T, "clone")) |clone_ty| {
                     const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
                     break :block (clone_ty == fn (*const T) Err!T);
                 } else {

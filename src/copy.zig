@@ -18,11 +18,12 @@ fn implCopy(comptime T: type) bool {
             .Optional => |O| implCopy(O.child),
             .Enum => |Enum| implCopy(Enum.tag_type),
             .ErrorUnion => |EU| implCopy(EU.error_set) and implCopy(EU.payload),
-            .Struct => |_| block: {
+            .Struct => |_| return block: {
                 break :block meta.all_field_types(T, implCopy);
             },
-            .Union => |_| block: {
-                break :block meta.all_field_types(T, implCopy);
+            .Union => |Union| return block: {
+                const tagCopy = if (Union.tag_type) |tag| implCopy(tag) else false;
+                break :block tagCopy and meta.all_field_types(T, implCopy);
             },
             else => false,
         };
