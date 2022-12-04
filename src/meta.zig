@@ -48,13 +48,17 @@ pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
             return null;
         if (!@hasDecl(T, name))
             return null;
-        return @TypeOf(@field(T, name));
+        return @as(?type, @TypeOf(@field(T, name)));
     }
 }
 
 pub fn have_fun_sig(comptime T: type, comptime name: []const u8, comptime Sig: type) bool {
     comptime {
-        return have_fun(T, name) == Sig;
+        if (!std.meta.trait.isContainer(T))
+            return false;
+        if (!@hasDecl(T, name))
+            return false;
+        return @TypeOf(@field(T, name)) == Sig;
     }
 }
 

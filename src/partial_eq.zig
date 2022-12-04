@@ -667,6 +667,9 @@ test "DerivePartialNe" {
         const x: T = T{ .val = 4 };
         const y: T = T{ .val = 5 };
         // 4/2 = 2 = 5/2
+        comptime assert(isPartialEq(T));
+        comptime assert(meta.have_fun(T, "eq") != null);
+        comptime assert(meta.have_fun(T, "ne") != null);
         try testing.expect(PartialEq.eq(x, y));
         // comptime assert(meta.have_fun(T, "ne") != null);
         try testing.expect(!x.ne(&y));

@@ -47,7 +47,6 @@ fn implEq(comptime T: type) bool {
                     return false;
                 return meta.all_field_types(T, implEq);
             },
-
             else => false,
         };
     }

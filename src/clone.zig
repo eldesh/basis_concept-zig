@@ -6,9 +6,6 @@ const copy = @import("./copy.zig");
 const testing = std.testing;
 const trait = std.meta.trait;
 const assert = std.debug.assert;
-const have_type = meta.have_type;
-const have_fun = meta.have_fun;
-const deref_type = meta.deref_type;
 
 fn implClone(comptime T: type) bool {
     comptime {
@@ -17,18 +14,28 @@ fn implClone(comptime T: type) bool {
             .Vector, .Array, .Optional => implClone(std.meta.Child(T)),
             .Enum => |Enum| implClone(Enum.tag_type),
             .ErrorUnion => |EU| implClone(EU.error_set) and implClone(EU.payload),
-            .Struct => |_| return block: {
-                if (have_fun(T, "clone")) |clone_ty| {
-                    const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
-                    break :block (clone_ty == fn (*const T) Err!T);
+            .Struct => |Struct| block: {
+                var clone_ty_opt: ?type = null;
+                for (Struct.decls) |decl| {
+                    if (std.mem.eql(u8, "clone", decl.name))
+                        clone_ty_opt = @TypeOf(T.clone);
+                }
+                if (clone_ty_opt) |clone_ty| {
+                    const Err = meta.have_type(T, "CloneError") orelse Clone.EmptyError;
+                    break :block clone_ty == fn (*const T) Err!T;
                 } else {
                     break :block meta.all_field_types(T, implClone);
                 }
             },
             .Union => |Union| block: {
-                if (meta.have_fun(T, "clone")) |clone_ty| {
-                    const Err = have_type(T, "CloneError") orelse Clone.EmptyError;
-                    break :block (clone_ty == fn (*const T) Err!T);
+                var clone_ty_opt: ?type = null;
+                for (Union.decls) |decl| {
+                    if (std.mem.eql(u8, "clone", decl.name))
+                        clone_ty_opt = @TypeOf(T.clone);
+                }
+                if (clone_ty_opt) |clone_ty| {
+                    const Err = meta.have_type(T, "CloneError") orelse Clone.EmptyError;
+                    break :block clone_ty == fn (*const T) Err!T;
                 } else {
                     const tagClone = if (Union.tag_type) |tag| implClone(tag) else true;
                     break :block tagClone and meta.all_field_types(T, implClone);
@@ -88,8 +95,8 @@ pub const Clone = struct {
     pub fn ErrorType(comptime T: type) type {
         comptime {
             assert(isClonable(T));
-            const Out = deref_type(T);
-            const Err = have_type(Out, "CloneError") orelse EmptyError;
+            const Out = meta.deref_type(T);
+            const Err = meta.have_type(Out, "CloneError") orelse EmptyError;
             return Err;
         }
     }
@@ -97,8 +104,8 @@ pub const Clone = struct {
     pub fn ResultType(comptime T: type) type {
         comptime {
             assert(isClonable(T));
-            const Out = deref_type(T);
-            const Err = have_type(Out, "CloneError") orelse EmptyError;
+            const Out = meta.deref_type(T);
+            const Err = meta.have_type(Out, "CloneError") orelse EmptyError;
             return Err!Out;
         }
     }
@@ -106,7 +113,7 @@ pub const Clone = struct {
     fn clone_impl(value: anytype) ResultType(@TypeOf(value)) {
         const T = @TypeOf(value);
         const E = std.meta.Child(T);
-        if (comptime have_fun(E, "clone")) |_|
+        if (comptime meta.have_fun(E, "clone")) |_|
             return value.clone();
         comptime assert(copy.isCopyable(T));
         return value.*;
