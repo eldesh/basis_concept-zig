@@ -42,5 +42,10 @@ pub const prelude = struct {
 };
 
 test {
-    @import("std").testing.refAllDecls(@This());
+    const std = @import("std");
+    std.testing.refAllDecls(@This());
+
+    const assert = std.debug.assert;
+    comptime assert(ord.isOrd(clone.Clone.EmptyError!u32));
+    comptime assert(ord.isOrd(*const (clone.Clone.EmptyError!u32)));
 }
