@@ -16,10 +16,15 @@ fn implOrd(comptime T: type) bool {
             .Array, .Optional => implOrd(std.meta.Child(T)),
             .Enum => |Enum| implOrd(Enum.tag_type),
             .ErrorUnion => |ErrorUnion| implOrd(ErrorUnion.error_set) and implOrd(ErrorUnion.payload),
-            .Struct, .Union => {
+            .Struct => {
                 if (meta.have_fun(T, "cmp")) |cmp|
                     return cmp == fn (*const T, *const T) std.math.Order;
-                if (meta.tag_of(T) catch null) |tag| {
+                return meta.all_field_types(T, implOrd);
+            },
+            .Union => |Union| {
+                if (meta.have_fun(T, "cmp")) |cmp|
+                    return cmp == fn (*const T, *const T) std.math.Order;
+                if (Union.tag_type) |tag| {
                     if (!implOrd(tag))
                         return false;
                 }
