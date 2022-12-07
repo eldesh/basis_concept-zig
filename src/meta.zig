@@ -1,11 +1,21 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const trait = std.meta.trait;
 const assert = std.debug.assert;
+const SemVer = std.SemanticVersion;
 
 pub const TypeKindError = error{
     NotEnumOrUnionError,
 };
+
+// pub usingnamespace basis;
+/// workaround criteria
+pub const zig091 = SemVer.parse("0.9.1") catch unreachable;
+/// *this* is older than or equals to zig-0.9.1 (<= 0.9.1).
+pub const older_zig091: bool = builtin.zig_version.order(zig091).compare(.lte);
+/// *this* is newer than zig-0.9.1 (> 0.9.1)
+pub const newer_zig091: bool = builtin.zig_version.order(zig091).compare(.gt);
 
 pub fn tag_of(comptime T: type) TypeKindError!?type {
     comptime {
@@ -42,13 +52,62 @@ comptime {
     assert(have_type(u32, "cmp") == null);
 }
 
+// On zig-0.10.0, `@hasDecl` crashes.
+fn hasDecl(comptime T: type, comptime name: []const u8) bool {
+    comptime {
+        switch (@typeInfo(T)) {
+            .Struct, .Union, .Enum, .Opaque => {
+                for (std.meta.declarations(T)) |decl| {
+                    if (decl.is_pub) {
+                        if (std.mem.eql(u8, decl.name, name))
+                            return true;
+                    }
+                }
+                return false;
+            },
+            else => return false,
+        }
+    }
+}
+
 pub fn have_fun(comptime T: type, comptime name: []const u8) ?type {
     comptime {
-        if (!std.meta.trait.isContainer(T))
+        if (newer_zig091) {
+            if (!std.meta.trait.isContainer(T))
+                return null;
+            if (!@hasDecl(T, name))
+                return null;
+            return @as(?type, @TypeOf(@field(T, name)));
+        } else {
+            switch (@typeInfo(T)) {
+                .Struct => |Struct| {
+                    for (Struct.decls) |decl| {
+                        if (std.mem.eql(u8, decl.name, name))
+                            return @TypeOf(@field(T, name));
+                    }
+                },
+                .Union => |Union| {
+                    for (Union.decls) |decl| {
+                        if (std.mem.eql(u8, decl.name, name))
+                            return @TypeOf(@field(T, name));
+                    }
+                },
+                .Enum => |Enum| {
+                    for (Enum.decls) |decl| {
+                        if (std.mem.eql(u8, decl.name, name))
+                            return @TypeOf(@field(T, name));
+                    }
+                },
+                .Opaque => |Opaque| {
+                    for (Opaque.decls) |decl| {
+                        if (std.mem.eql(u8, decl.name, name))
+                            return @TypeOf(@field(T, name));
+                    }
+                },
+                else => {},
+            }
             return null;
-        if (!@hasDecl(T, name))
-            return null;
-        return @as(?type, @TypeOf(@field(T, name)));
+        }
     }
 }
 
