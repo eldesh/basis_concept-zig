@@ -240,7 +240,7 @@ pub const Eq = struct {
 
     fn eq_struct(comptime T: type, x: T, y: T) bool {
         comptime assert(trait.isPtrTo(.Struct)(T));
-        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+        inline for (comptime std.meta.fields(std.meta.Child(T))) |field| {
             if (!eq_impl(&@field(x, field.name), &@field(y, field.name)))
                 return false;
         }

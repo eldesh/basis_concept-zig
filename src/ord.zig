@@ -119,7 +119,7 @@ pub const Ord = struct {
 
     fn cmp_struct(comptime T: type, x: T, y: T) std.math.Order {
         comptime assert(trait.isPtrTo(.Struct)(T));
-        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+        inline for (comptime std.meta.fields(std.meta.Child(T))) |field| {
             const o = cmp_impl(&@field(x, field.name), &@field(y, field.name));
             if (o.compare(.ne))
                 return o;
