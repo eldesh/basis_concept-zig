@@ -52,6 +52,10 @@ comptime {
     assert(!isOrd(f32));
     assert(!isOrd(@Vector(4, u32)));
     assert(!isOrd(@Vector(4, f64)));
+    const unit = struct {};
+    assert(isOrd(unit));
+    assert(isOrd(*unit));
+    assert(isOrd(*const unit));
     const C = struct {
         val: u32,
         pub fn partial_cmp(x: *const @This(), y: *const @This()) ?std.math.Order {
@@ -113,6 +117,16 @@ pub const Ord = struct {
         return std.math.order(@enumToInt(x.*), @enumToInt(y.*));
     }
 
+    fn cmp_struct(comptime T: type, x: T, y: T) std.math.Order {
+        comptime assert(trait.isPtrTo(.Struct)(T));
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            const o = cmp_impl(&@field(x, field.name), &@field(y, field.name));
+            if (o.compare(.ne))
+                return o;
+        }
+        return std.math.Order.eq;
+    }
+
     pub fn cmp_impl(x: anytype, y: @TypeOf(x)) std.math.Order {
         const T = @TypeOf(x);
         comptime assert(trait.isSingleItemPtr(T));
@@ -135,6 +149,8 @@ pub const Ord = struct {
             return std.math.order(x.*, y.*);
         if (comptime meta.have_fun(T, "cmp")) |_|
             return x.cmp(y);
+        if (comptime trait.is(.Struct)(E))
+            return cmp_struct(T, x, y);
 
         @compileError("Ord is undefined for type:" ++ @typeName(T));
     }
@@ -201,6 +217,15 @@ test "Ord" {
     const bx = [3]u32{ 0, 1, 3 };
     try testing.expectEqual(Order.lt, Ord.cmp(ax, bx));
     try testing.expectEqual(Order.eq, Ord.cmp(ax, ax));
+
+    const Unit = struct {};
+    const @"u1": Unit = Unit{};
+    const @"u2": Unit = Unit{};
+    assert(isOrd(Unit));
+    assert(isOrd(*Unit));
+    assert(isOrd(*const Unit));
+    try testing.expect(Ord.cmp(&@"u1", &@"u1").compare(.eq));
+    try testing.expect(Ord.cmp(&@"u1", &@"u2").compare(.eq));
 
     // compares complex type
     const C = struct {

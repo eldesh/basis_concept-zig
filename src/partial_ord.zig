@@ -122,6 +122,16 @@ pub const PartialOrd = struct {
         return std.math.order(@enumToInt(x.*), @enumToInt(y.*));
     }
 
+    fn cmp_struct(comptime T: type, x: T, y: T) ?std.math.Order {
+        comptime assert(trait.isPtrTo(.Struct)(T));
+        inline for (std.meta.fields(std.meta.Child(T))) |field| {
+            const o = cmp_impl(&@field(x, field.name), &@field(y, field.name)) orelse return null;
+            if (o.compare(.ne))
+                return o;
+        }
+        return std.math.Order.eq;
+    }
+
     pub fn cmp_impl(x: anytype, y: @TypeOf(x)) ?std.math.Order {
         const T = @TypeOf(x);
         comptime assert(trait.isSingleItemPtr(T));
@@ -146,6 +156,8 @@ pub const PartialOrd = struct {
             return std.math.order(x.*, y.*);
         if (comptime meta.have_fun(T, "partial_cmp")) |_|
             return x.partial_cmp(y);
+        if (comptime trait.is(.Struct)(E))
+            return cmp_struct(T, x, y);
 
         @compileError("PartialOrd is undefined for type:" ++ @typeName(T));
     }
@@ -221,6 +233,15 @@ test "PartialOrd" {
     const bx = [3]u32{ 0, 1, 3 };
     try testing.expectEqual(opt(Order.lt), PartialOrd.partial_cmp(ax, bx));
     try testing.expectEqual(opt(Order.eq), PartialOrd.partial_cmp(ax, ax));
+
+    const Unit = struct {};
+    const @"u1": Unit = Unit{};
+    const @"u2": Unit = Unit{};
+    assert(isPartialOrd(Unit));
+    assert(isPartialOrd(*Unit));
+    assert(isPartialOrd(*const Unit));
+    try testing.expect(PartialOrd.partial_cmp(&@"u1", &@"u1").?.compare(.eq));
+    try testing.expect(PartialOrd.partial_cmp(&@"u1", &@"u2").?.compare(.eq));
 
     // compares complex type
     const C = struct {
