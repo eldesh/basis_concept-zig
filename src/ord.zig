@@ -152,7 +152,7 @@ pub const Ord = struct {
         if (comptime trait.is(.Struct)(E))
             return cmp_struct(T, x, y);
 
-        @compileError("Ord is undefined for type:" ++ @typeName(T));
+        @compileError("Ord is undefined for type:" ++ @typeName(T) ++ ":" ++ @typeInfo(T));
     }
 
     /// General comparing function on a type returns true for `isOrd`.
