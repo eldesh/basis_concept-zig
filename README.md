@@ -1,6 +1,6 @@
 # Basis Concept Zig
 
-**basis_concept-zig** is a collection library of "basis concept" and some operations on it.
+**basis_concept-zig** is a collection library of "basis concept" and some operations on them.
 Some basic concepts such as `Copyable` are provided.
 
 

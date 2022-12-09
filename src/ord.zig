@@ -127,7 +127,7 @@ pub const Ord = struct {
         return std.math.Order.eq;
     }
 
-    pub fn cmp_impl(x: anytype, y: @TypeOf(x)) std.math.Order {
+    fn cmp_impl(x: anytype, y: @TypeOf(x)) std.math.Order {
         const T = @TypeOf(x);
         comptime assert(trait.isSingleItemPtr(T));
         const E = std.meta.Child(T);
