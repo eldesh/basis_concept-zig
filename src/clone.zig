@@ -14,13 +14,8 @@ fn implClone(comptime T: type) bool {
             .Vector, .Array, .Optional => implClone(std.meta.Child(T)),
             .Enum => |Enum| implClone(Enum.tag_type),
             .ErrorUnion => |EU| implClone(EU.error_set) and implClone(EU.payload),
-            .Struct => |Struct| block: {
-                var clone_ty_opt: ?type = null;
-                for (Struct.decls) |decl| {
-                    if (std.mem.eql(u8, "clone", decl.name))
-                        clone_ty_opt = @TypeOf(T.clone);
-                }
-                if (clone_ty_opt) |clone_ty| {
+            .Struct => |_| block: {
+                if (meta.have_fun(T, "clone")) |clone_ty| {
                     const Err = meta.have_type(T, "CloneError") orelse Clone.EmptyError;
                     break :block clone_ty == fn (*const T) Err!T;
                 } else {
@@ -28,12 +23,7 @@ fn implClone(comptime T: type) bool {
                 }
             },
             .Union => |Union| block: {
-                var clone_ty_opt: ?type = null;
-                for (Union.decls) |decl| {
-                    if (std.mem.eql(u8, "clone", decl.name))
-                        clone_ty_opt = @TypeOf(T.clone);
-                }
-                if (clone_ty_opt) |clone_ty| {
+                if (meta.have_fun(T, "clone")) |clone_ty| {
                     const Err = meta.have_type(T, "CloneError") orelse Clone.EmptyError;
                     break :block clone_ty == fn (*const T) Err!T;
                 } else {
