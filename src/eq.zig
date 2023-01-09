@@ -124,7 +124,7 @@ comptime {
     assert(implEq(struct {
         val: *u32,
         pub fn eq(self: *const @This(), other: *const @This()) bool {
-            return self.val == other.val;
+            return self.val.* == other.val.*;
         }
         pub fn ne(self: *const @This(), other: *const @This()) bool {
             return !self.eq(other);
